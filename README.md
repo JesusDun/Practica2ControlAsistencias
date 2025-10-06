@@ -13,7 +13,7 @@ Misael: Bien, al final si lo encontaste
 
 Jesus: Jajajaj Salu2
 
-Raul: Me gustan los Takis.
+Raul: Me gustan los Femboys.
 
 Jesus: Sexoooooo
 
