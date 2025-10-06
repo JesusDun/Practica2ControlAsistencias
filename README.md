@@ -13,3 +13,5 @@ Jesus> aa, ni idea, se supone que ya les cayo la invitacion, xdddddddddd
 Jesus> andan en su rollo, xdddddddddddddddddddddddddddddddddddd
 
 Misael: Ya me di cuenta, LPTM
+
+Raul: Presente para presidente.
