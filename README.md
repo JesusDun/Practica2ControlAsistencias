@@ -13,7 +13,7 @@ Misael: Bien, al final si lo encontaste
 
 Jesus: Jajajaj Salu2
 
-Raul: Soy un squibidi amigo
+Raul: Me gustan los Takis.
 
 Jesus: Sexoooooo
 
