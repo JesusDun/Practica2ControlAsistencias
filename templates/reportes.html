@@ -1,0 +1,59 @@
+<div class="card">
+    <div class="card-header">
+        <h5>Reportes</h5>
+    </div>
+    <div class="card-body">
+        <form id="frmReporte" ng-submit="generarReporte()">
+            <div class="row mb-3">
+                <div class="col-md-3">
+                    <label>Tipo de Reporte</label>
+                    <select class="form-control" ng-model="reporte.tipo">
+                        <option value="asistencias">Reporte de Asistencias</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label>Fecha Inicio</label>
+                    <input type="date" class="form-control" ng-model="reporte.fechaInicio" required>
+                </div>
+                <div class="col-md-3">
+                    <label>Fecha Fin</label>
+                    <input type="date" class="form-control" ng-model="reporte.fechaFin" required>
+                </div>
+                <div class="col-md-3">
+                    <label>&nbsp;</label>
+                    <div>
+                        <button type="submit" class="btn btn-primary me-2">Generar Reporte</button>
+                        <button type="button" class="btn btn-success" ng-click="exportarPDF()" ng-disabled="resultados.length === 0">
+                            Exportar PDF
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </form>
+
+        <div class="table-responsive" ng-if="resultados.length > 0">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Empleado</th>
+                        <th>Asistencias</th>
+                        <th>Retardos</th>
+                        <th>Faltas</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr ng-repeat="item in resultados">
+                        <td>{{ item.nombreEmpleado }}</td>
+                        <td>{{ item.asistencias }}</td>
+                        <td>{{ item.retardos }}</td>
+                        <td>{{ item.faltas }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div ng-if="resultados.length === 0" class="text-center text-muted mt-4">
+            <p>No hay datos para mostrar. Genera un reporte primero.</p>
+        </div>
+    </div>
+</div>

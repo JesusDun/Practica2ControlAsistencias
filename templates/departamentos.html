@@ -1,0 +1,32 @@
+<form id="frmDepartamento" method="post">
+    <input type="hidden" id="idDepartamento" name="idDepartamento">
+    <div class="mb-1">
+        <label>Nombre del departamento</label>
+        <input type="text" class="form-control" id="txtNombreDepartamento" name="txtNombreDepartamento" required>
+    </div>
+    <div class="mb-1">
+        <label>Edificio</label>
+        <input type="text" class="form-control" id="txtEdificio" name="txtEdificio" required>
+    </div>
+    <div class="mb-1">
+        <label>Descripcion</label>
+        <input type="text" class="form-control" id="txtDescripcion" name="txtDescripcion" required>
+    </div>
+    <div class="mb-1 text-end">
+        <button class="btn btn-primary">Guardar</button>
+    </div>
+</form>
+
+<div class="table-responsive">
+    <table class="table table-sm">
+        <thead class="table-active">
+            <tr>
+                <th>Id</th>
+                <th>Nombre de departamento</th>
+                <th>Edificio</th>
+                <th>Descripcion</th>
+            </tr>
+        </thead>
+        <tbody id="tbodyDepartamentos"></tbody>
+    </table>
+</div>

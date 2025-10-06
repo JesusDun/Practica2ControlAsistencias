@@ -1,0 +1,27 @@
+<form id="frmAsistencia" method="post">
+    <input type="hidden" id="hiddenId" name="id">
+    <div class="mb-1">
+        <label>Fecha</label>
+        <input type="date" class="form-control" id="txtFecha" name="fecha" required>
+    </div>
+    <div class="mb-1">
+        <label>Comentarios</label>
+        <textarea class="form-control" id="txtComentarios" name="comentarios"></textarea>
+    </div>
+    <div class="mb-1 text-end">
+        <button class="btn btn-primary">Guardar</button>
+    </div>
+</form>
+<div class="table-responsive">
+    <table class="table table-sm">
+        <thead class="table-active">
+            <tr>
+                <th>Id</th>
+                <th>Fecha</th>
+                <th>Comentarios</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody id="tbodyAsistencias"></tbody>
+    </table>
+</div>
