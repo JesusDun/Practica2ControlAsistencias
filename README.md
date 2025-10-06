@@ -15,4 +15,4 @@ Jesus: Jajajaj Salu2
 
 Jesus: Sexoooooo
 
-Stephany: Soy lesbiana
+Stephany: tu cola
