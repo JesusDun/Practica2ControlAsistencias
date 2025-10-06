@@ -13,6 +13,8 @@ Misael: Bien, al final si lo encontaste
 
 Jesus: Jajajaj Salu2
 
-Raul: Soy Raúl y me gustan los Takis.
+Raul: Soy un squibidi amigo
 
 Jesus: Sexoooooo
+
+Stephany: Soy lesbiana
