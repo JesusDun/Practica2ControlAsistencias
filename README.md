@@ -21,3 +21,5 @@ Jesus> Ojooooooooo, ya subi todo el codigo, ahora lo desplegare en Render lololo
 Misael: Vavavava yo de mientras voy a descargar la plantilla
 
 Jesus> pasen el correo que teniamos en el equipo de render, y que todos podemos acceder, perdi el correo y la contra xde
+
+Jesus> Ponganlo aqui en el README, para seguridad.
