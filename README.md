@@ -11,3 +11,5 @@ Misael: Me refiero a estos cabrones, aun no aceptan la invitación
 Jesus> aa, ni idea, se supone que ya les cayo la invitacion, xdddddddddd
 
 Jesus> andan en su rollo, xdddddddddddddddddddddddddddddddddddd
+
+Misael: Ya me di cuenta, LPTM
