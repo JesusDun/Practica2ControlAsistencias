@@ -14,8 +14,7 @@ app.config(function ($routeProvider, $locationProvider) {
 
     $routeProvider
     .when("/", {
-        templateUrl: "/login",
-        controller: "loginCtrl"
+        redirectTo: "/empleados"
     })
     .when("/empleados", {
         templateUrl: "/empleados",
@@ -41,7 +40,7 @@ app.config(function ($routeProvider, $locationProvider) {
 app.run(["$rootScope", "$location", "$timeout", function($rootScope, $location, $timeout) {
     // ... Código del profesor para fecha/hora y animaciones (sin cambios) ...
     function actualizarFechaHora() {
-        lxFechaHora = DateTime
+        lxFechaHora = luxon.DateTime
         .now()
         .setLocale("es")
 
@@ -78,32 +77,8 @@ app.run(["$rootScope", "$location", "$timeout", function($rootScope, $location, 
     })
 }])
 
-// Controlador para Login
-app.controller("loginCtrl", function ($scope, $http, $window) {
-    $("#frmInicioSesion").submit(function (event) {
-        event.preventDefault();
-        
-        $.post("/iniciarSesion", $(this).serialize())
-            .done(function (respuesta) {
-                if (respuesta.error) {
-                    alert(respuesta.error);
-                }
-                // Si la respuesta es exitosa (login correcto)
-                else if (Array.isArray(respuesta) && respuesta.length > 0) {
-                    alert("Iniciaste Sesión Correctamente");
-                    $window.location.href = '/#/empleados'; // Redirección
-                }
-            })
-            .fail(function (xhr, status, error) {
-                try {
-                    const responseData = JSON.parse(xhr.responseText);
-                    alert(responseData.error || "Error desconocido en el servidor.");
-                } catch (e) {
-                    alert("Hubo un problema con el servidor. Inténtalo de nuevo.");
-                }
-            });
-    });
-});
+// OBSERVACIÓN: El controlador "loginCtrl" se ha eliminado porque no es necesario
+// en el contexto del dashboard. El inicio de sesión se gestiona en una página separada.
 
 // =========================================================================
 // Controlador para Empleados 
@@ -304,7 +279,7 @@ app.controller("departamentosCtrl", function ($scope, $http) {
         .done(function () {
             buscarDepartamentos()
             $("#frmDepartamento")[0].reset()
-            $("#idDepartamento").val("") // Asumiendo que tienes un campo oculto con este id
+            $("#idDepartamento").val("")
         })
     })
 })
@@ -323,4 +298,3 @@ document.addEventListener("DOMContentLoaded", function (event) {
     }
     activeMenuOption(location.hash)
 })
-
