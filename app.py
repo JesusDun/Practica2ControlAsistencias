@@ -29,7 +29,7 @@ app = Flask(__name__)
 CORS(app)
 app.config['SECRET_KEY'] = os.urandom(24) 
 
-# --- CONFIGURACIÓN DE PUSHER (sin cambios) ---
+# --- CONFIGURACIÓN DE PUSHER ---
 pusher_client = pusher.Pusher(
     app_id='2048531',
     key='686124f7505c58418f23',
@@ -38,14 +38,14 @@ pusher_client = pusher.Pusher(
     ssl=True
 )
 
-# --- CONFIGURACIÓN DE FLASK-LOGIN (sin cambios) ---
+# --- CONFIGURACIÓN DE FLASK-LOGIN ---
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'appLogin'
 login_manager.login_message = "Por favor, inicia sesión para acceder a esta página."
 login_manager.login_message_category = "warning"
 
-# --- Modelo de Usuario para Flask-Login (sin cambios) ---
+# --- Modelo de Usuario para Flask-Login ---
 class User(UserMixin):
     def __init__(self, id, username, role):
         self.id = id
@@ -74,19 +74,19 @@ class User(UserMixin):
 def load_user(user_id):
     return User.get(user_id)
 
-# --- Decorador para verificar roles (sin cambios) ---
-def role_required(role):
+# --- Decorador para verificar roles ---
+def role_required(roles):
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
-            if not current_user.is_authenticated or current_user.role not in role:
+            if not current_user.is_authenticated or current_user.role not in roles:
                 flash("No tienes permiso para acceder a esta página.", "danger")
                 return redirect(url_for('dashboard'))
             return f(*args, **kwargs)
         return decorated_function
     return decorator
 
-# --- Funciones de Pusher (sin cambios) ---
+# --- Funciones de Pusher ---
 def pusherAsistencias():
     pusher_client.trigger("canalAsistencias", "eventoAsistencias", {"message": "Cambio en asistencias."})
 def pusherEmpleados():
@@ -109,20 +109,15 @@ def landingPage():
 def dashboard():
     return render_template("dashboard.html")
 
-# --- RUTA DE LOGIN MODIFICADA ---
-# Ahora maneja GET (mostrar formulario) y POST (procesar datos)
 @app.route("/login", methods=['GET', 'POST'])
 def appLogin():
-    # Si el usuario ya está logueado, lo mandamos al dashboard
     if current_user.is_authenticated:
         return redirect(url_for('dashboard'))
 
-    # Si el método es POST, significa que el formulario fue enviado
     if request.method == 'POST':
         usuario_ingresado = request.form.get("txtUsuario")
         contrasena_ingresada_raw = request.form.get("txtContrasena")
 
-        # CORRECCIÓN: Verificar ANTES de intentar codificar la contraseña
         if not usuario_ingresado or not contrasena_ingresada_raw:
             flash("Usuario y contraseña son requeridos.", "danger")
             return redirect(url_for('appLogin'))
@@ -140,6 +135,7 @@ def appLogin():
             if user_data and bcrypt.checkpw(contrasena_ingresada, user_data['password'].encode('utf-8')):
                 user_obj = User(id=user_data['idUsuario'], username=user_data['username'], role=user_data['role'])
                 login_user(user_obj)
+                # Redirección obligatoria al dashboard
                 return redirect(url_for('dashboard'))
             else:
                 flash("Usuario o Contraseña Incorrectos", "danger")
@@ -148,7 +144,6 @@ def appLogin():
             flash(f"Error de base de datos: {err}", "danger")
             return redirect(url_for('appLogin'))
         except Exception as e:
-            # Captura de cualquier otro error para depuración
             flash(f"Ha ocurrido un error inesperado: {e}", "danger")
             return redirect(url_for('appLogin'))
         finally:
@@ -156,12 +151,7 @@ def appLogin():
                 cursor.close()
                 con.close()
 
-    # Si el método es GET, simplemente mostramos la plantilla del login
     return render_template("login.html")
-
-
-# --- SE ELIMINÓ la ruta "/iniciarSesion" porque su lógica ahora está en /login ---
-
 
 @app.route("/logout")
 @login_required
@@ -171,11 +161,12 @@ def logout():
     return redirect(url_for('appLogin'))
 
 # =========================================================================
-# MÓDULO EMPLEADOS (PROTEGIDO) (sin cambios)
+# MÓDULOS PROTEGIDOS
 # =========================================================================
 
 @app.route("/empleados")
 @login_required
+@role_required(['Administrador'])
 def empleados():
     con = mysql.connector.connect(**db_config)
     cursor = con.cursor(dictionary=True)
@@ -187,6 +178,7 @@ def empleados():
 
 @app.route("/tbodyEmpleados")
 @login_required
+@role_required(['Administrador'])
 def tbodyEmpleados():
     con = mysql.connector.connect(**db_config)
     cursor = con.cursor(dictionary=True)
@@ -244,9 +236,6 @@ def guardarEmpleado():
             cursor.close()
             con.close()
 
-# =========================================================================
-# Resto de los módulos (todos protegidos, sin cambios)
-# =========================================================================
 @app.route("/asistencias")
 @login_required
 def asistencias():
@@ -345,11 +334,13 @@ def guardarAsistenciaPase():
 
 @app.route("/departamentos")
 @login_required
+@role_required(['Administrador'])
 def departamentos():
     return render_template("departamentos.html")
 
 @app.route("/tbodyDepartamentos")
 @login_required
+@role_required(['Administrador'])
 def tbodyDepartamentos():
     con = mysql.connector.connect(**db_config)
     cursor = con.cursor(dictionary=True)
