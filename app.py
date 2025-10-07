@@ -120,12 +120,15 @@ def appLogin():
     # Si el método es POST, significa que el formulario fue enviado
     if request.method == 'POST':
         usuario_ingresado = request.form.get("txtUsuario")
-        contrasena_ingresada = request.form.get("txtContrasena").encode('utf-8')
+        contrasena_ingresada_raw = request.form.get("txtContrasena")
 
-        if not usuario_ingresado or not contrasena_ingresada:
+        # CORRECCIÓN: Verificar ANTES de intentar codificar la contraseña
+        if not usuario_ingresado or not contrasena_ingresada_raw:
             flash("Usuario y contraseña son requeridos.", "danger")
             return redirect(url_for('appLogin'))
 
+        contrasena_ingresada = contrasena_ingresada_raw.encode('utf-8')
+        
         con = None
         try:
             con = mysql.connector.connect(**db_config)
@@ -143,6 +146,10 @@ def appLogin():
                 return redirect(url_for('appLogin'))
         except mysql.connector.Error as err:
             flash(f"Error de base de datos: {err}", "danger")
+            return redirect(url_for('appLogin'))
+        except Exception as e:
+            # Captura de cualquier otro error para depuración
+            flash(f"Ha ocurrido un error inesperado: {e}", "danger")
             return redirect(url_for('appLogin'))
         finally:
             if con and con.is_connected():
@@ -377,4 +384,3 @@ def guardarDepartamento():
 
 if __name__ == '__main__':
     app.run(debug=True, port=5001)
-
