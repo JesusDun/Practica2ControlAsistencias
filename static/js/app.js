@@ -14,8 +14,8 @@ app.config(function ($routeProvider, $locationProvider) {
 
     $routeProvider
     .when("/", {
-        templateUrl: "/app",
-        controller: "appCtrl"
+        templateUrl: "/login",
+        controller: "loginCtrl"
     })
     .when("/empleados", {
         templateUrl: "/empleados",
@@ -79,7 +79,7 @@ app.run(["$rootScope", "$location", "$timeout", function($rootScope, $location, 
 }])
 
 // Controlador para Login
-app.controller("appCtrl", function ($scope, $http, $window) {
+app.controller("loginCtrl", function ($scope, $http, $window) {
     $("#frmInicioSesion").submit(function (event) {
         event.preventDefault();
         
