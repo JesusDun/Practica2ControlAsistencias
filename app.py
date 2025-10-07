@@ -3,9 +3,15 @@
 # activate.bat
 # py -m ensurepip --upgrade
 # pip install -r requirements.txt
-# pip install bcrypt
+# pip install bcrypt flask-login
 
-from flask import Flask, render_template, request, jsonify, make_response
+import os
+from functools import wraps
+from flask import Flask, render_template, request, jsonify, make_response, redirect, url_for, flash
+
+# --- NUEVO: Importaciones de Flask-Login ---
+from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
+
 import mysql.connector
 from flask_cors import CORS
 import pusher
@@ -21,9 +27,10 @@ db_config = {
 
 app = Flask(__name__)
 CORS(app)
-app.secret_key = "tu_llave_secreta_aqui" # Se define una sola vez
+# Es crucial para que Flask-Login y las sesiones funcionen
+app.config['SECRET_KEY'] = os.urandom(24) 
 
-# --- CONFIGURACIÓN DE PUSHER ---
+# --- CONFIGURACIÓN DE PUSHER (sin cambios) ---
 pusher_client = pusher.Pusher(
     app_id='2048531',
     key='686124f7505c58418f23',
@@ -32,16 +39,65 @@ pusher_client = pusher.Pusher(
     ssl=True
 )
 
-# --- Funciones de Pusher para notificar a los clientes ---
+# --- NUEVO: CONFIGURACIÓN DE FLASK-LOGIN ---
+login_manager = LoginManager()
+login_manager.init_app(app)
+# A dónde redirigir si un usuario anónimo intenta acceder a una página protegida
+login_manager.login_view = 'appLogin'
+# Mensaje que se mostrará
+login_manager.login_message = "Por favor, inicia sesión para acceder a esta página."
+login_manager.login_message_category = "warning"
+
+# --- NUEVO: Modelo de Usuario para Flask-Login ---
+# Esta clase representa al usuario y se integra con Flask-Login
+class User(UserMixin):
+    def __init__(self, id, username, role):
+        self.id = id
+        self.username = username
+        self.role = role
+
+    @staticmethod
+    def get(user_id):
+        con = None
+        try:
+            con = mysql.connector.connect(**db_config)
+            cursor = con.cursor(dictionary=True)
+            cursor.execute("SELECT idUsuario, username, role FROM usuarios WHERE idUsuario = %s", (user_id,))
+            user_data = cursor.fetchone()
+            if not user_data:
+                return None
+            return User(id=user_data['idUsuario'], username=user_data['username'], role=user_data['role'])
+        except mysql.connector.Error:
+            return None
+        finally:
+            if con and con.is_connected():
+                cursor.close()
+                con.close()
+
+# Función requerida por Flask-Login para cargar el usuario de la sesión
+@login_manager.user_loader
+def load_user(user_id):
+    return User.get(user_id)
+
+# --- NUEVO: Decorador para verificar roles ---
+def role_required(role):
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if not current_user.is_authenticated or current_user.role not in role:
+                flash("No tienes permiso para acceder a esta página.", "danger")
+                return redirect(url_for('dashboard'))
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
+
+# --- Funciones de Pusher (sin cambios) ---
 def pusherAsistencias():
     pusher_client.trigger("canalAsistencias", "eventoAsistencias", {"message": "Cambio en asistencias."})
-
 def pusherEmpleados():
     pusher_client.trigger("canalEmpleados", "eventoEmpleados", {"message": "La lista de empleados ha cambiado."})
-
 def pusherAsistenciasPases():
     pusher_client.trigger("canalAsistenciasPases", "eventoAsistenciasPases", {"message": "La lista de pases de asistencia ha cambiado."})
-    
 def pusherDepartamentos():
     pusher_client.trigger("canalDepartamentos", "eventoDepartamentos", {"message": "La lista de empleados ha cambiado."})
 
@@ -53,58 +109,72 @@ def pusherDepartamentos():
 def landingPage():
     return render_template("landing-page.html")
 
+# --- MODIFICADO: Ahora el dashboard está protegido ---
 @app.route("/dashboard")
+@login_required
 def dashboard():
     return render_template("dashboard.html")
 
 @app.route("/login")
 def appLogin():
+    # Si el usuario ya está logueado, lo mandamos al dashboard
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard'))
     return render_template("login.html")
 
+# --- MODIFICADO: La lógica de iniciar sesión ahora usa Flask-Login ---
 @app.route("/iniciarSesion", methods=["POST"])
 def iniciarSesion():
     con = None
     cursor = None
     try:
         usuario_ingresado = request.form.get("txtUsuario")
-        contrasena_ingresada = request.form.get("txtContrasena")
+        contrasena_ingresada = request.form.get("txtContrasena").encode('utf-8') # Codificar para bcrypt
 
         if not usuario_ingresado or not contrasena_ingresada:
-            return make_response(jsonify({"error": "Usuario y/o contraseña faltantes."}), 400)
+            flash("Usuario y contraseña son requeridos.", "danger")
+            return redirect(url_for('appLogin'))
 
         con = mysql.connector.connect(**db_config)
         cursor = con.cursor(dictionary=True)
         
-        sql = "SELECT idUsuario, password FROM usuarios WHERE username = %s"
+        sql = "SELECT idUsuario, username, password, role FROM usuarios WHERE username = %s"
         cursor.execute(sql, (usuario_ingresado,))
-        registro_usuario = cursor.fetchone()
+        user_data = cursor.fetchone()
 
-        usuario_encontrado = None
-        
-        if registro_usuario and registro_usuario['password'] == contrasena_ingresada:
-            usuario_encontrado = [{"Id_Usuario": registro_usuario['idUsuario']}]
-        
-        if usuario_encontrado:
-            return make_response(jsonify(usuario_encontrado), 200)
+        # Verificar que el usuario exista y que la contraseña hasheada coincida
+        if user_data and bcrypt.checkpw(contrasena_ingresada, user_data['password'].encode('utf-8')):
+            # Creamos el objeto User y lo logueamos
+            user_obj = User(id=user_data['idUsuario'], username=user_data['username'], role=user_data['role'])
+            login_user(user_obj) # <-- Magia de Flask-Login
+            return redirect(url_for('dashboard'))
         else:
-            return make_response(jsonify({"error": "Usuario y/o Contraseña Incorrecto(s)"}), 401)
+            flash("Usuario o Contraseña Incorrectos", "danger")
+            return redirect(url_for('appLogin'))
 
     except mysql.connector.Error as err:
-        return make_response(jsonify({"error": f"Error de base de datos: {err}"}), 500)
-    except Exception as e:
-        return make_response(jsonify({"error": f"Hubo un error en el servidor: {e}"}), 500)
+        flash(f"Error de base de datos: {err}", "danger")
+        return redirect(url_for('appLogin'))
     finally:
-        if cursor:
-            cursor.close()
-        if con and con.is_connected():
-            con.close()
+        if cursor: cursor.close()
+        if con and con.is_connected(): con.close()
+
+# --- NUEVO: Ruta para cerrar sesión ---
+@app.route("/logout")
+@login_required
+def logout():
+    logout_user()
+    flash("Has cerrado sesión exitosamente.", "success")
+    return redirect(url_for('appLogin'))
 
 # =========================================================================
-# MÓDULO EMPLEADOS
+# MÓDULO EMPLEADOS (PROTEGIDO)
 # =========================================================================
 
 @app.route("/empleados")
+@login_required # <-- AÑADIDO
 def empleados():
+    # ... (código sin cambios)
     con = mysql.connector.connect(**db_config)
     cursor = con.cursor(dictionary=True)
     cursor.execute("SELECT idDepartamento, NombreDepartamento FROM departamento ORDER BY NombreDepartamento ASC")
@@ -112,8 +182,11 @@ def empleados():
     con.close()
     return render_template("empleados.html", departamentos=departamentos)
 
+
 @app.route("/tbodyEmpleados")
+@login_required # <-- AÑADIDO
 def tbodyEmpleados():
+    # ... (código sin cambios)
     con = mysql.connector.connect(**db_config)
     cursor = con.cursor(dictionary=True)
     sql = """
@@ -129,9 +202,12 @@ def tbodyEmpleados():
     con.close()
     return render_template("tbodyEmpleados.html", empleados=registros)
 
+# --- NUEVO: Ejemplo de ruta protegida por rol de Administrador ---
 @app.route("/empleado", methods=["POST"])
+@login_required
+@role_required(['Administrador']) # Solo los administradores pueden guardar
 def guardarEmpleado():
-    # MEJORA: Se usa .get() para más seguridad y se añade manejo de errores.
+    # ... (código sin cambios)
     idEmpleado = request.form.get("idEmpleado")
     nombreEmpleado = request.form.get("nombreEmpleado")
     numero = request.form.get("numero")
@@ -156,7 +232,6 @@ def guardarEmpleado():
         cursor.execute(sql, val)
         con.commit()
         
-        # NUEVO: Se notifica a los clientes del cambio a través de Pusher.
         pusherEmpleados()
         
         return make_response(jsonify({"message": "Operación exitosa"}), 200)
@@ -171,14 +246,17 @@ def guardarEmpleado():
             con.close()
 
 # =========================================================================
-# MÓDULO ASISTENCIAS (Sin cambios, ya estaba bien)
+# Resto de los módulos (todos protegidos)
 # =========================================================================
 @app.route("/asistencias")
+@login_required # <-- AÑADIDO
 def asistencias():
     return render_template("asistencias.html")
 
 @app.route("/tbodyAsistencias")
+@login_required # <-- AÑADIDO
 def tbodyAsistencias():
+    # ... (código sin cambios)
     con = mysql.connector.connect(**db_config)
     cursor = con.cursor(dictionary=True)
     sql = "SELECT idAsistencia, fecha, comentarios FROM asistencias ORDER BY idAsistencia DESC"
@@ -188,8 +266,9 @@ def tbodyAsistencias():
     return render_template("tbodyAsistencias.html", asistencias=registros)
 
 @app.route("/asistencia", methods=["POST"])
+@login_required # <-- AÑADIDO
 def guardarAsistencia():
-    # Esta ruta puede mejorarse con manejo de errores como en guardarEmpleado
+    # ... (código sin cambios)
     con = mysql.connector.connect(**db_config)
     cursor = con.cursor()
     fecha = request.form["fecha"]
@@ -203,46 +282,33 @@ def guardarAsistencia():
     pusherAsistencias()
     return make_response(jsonify({}))
 
-# =========================================================================
-# MÓDULO ASISTENCIAS/PASES
-# =========================================================================
-
 @app.route("/asistenciaspases")
+@login_required # <-- AÑADIDO
 def asistenciaspases():
-    # Ahora consultamos tanto empleados como asistencias para los <select>
+    # ... (código sin cambios)
     con = mysql.connector.connect(**db_config)
     cursor = con.cursor(dictionary=True)
-    
-    # Obtener empleados
     cursor.execute("SELECT idEmpleado, nombreEmpleado FROM empleados ORDER BY nombreEmpleado ASC")
     empleados = cursor.fetchall()
-    
-    # Obtener asistencias (fechas)
     cursor.execute("SELECT idAsistencia, fecha, comentarios FROM asistencias ORDER BY fecha DESC")
     asistencias = cursor.fetchall()
-    
     con.close()
-    
-    # Pasamos AMBAS listas al template
     return render_template("asistenciaspases.html", empleados=empleados, asistencias=asistencias)
 
 
 @app.route("/tbodyAsistenciasPases")
+@login_required # <-- AÑADIDO
 def tbodyAsistenciasPases():
+    # ... (código sin cambios)
     con = mysql.connector.connect(**db_config)
     cursor = con.cursor(dictionary=True)
-    # CORRECCIÓN: Se añade AP.idAsistencia a la consulta para el botón de editar
     sql = """
     SELECT 
-        AP.idAsistenciaPase, 
-        AP.idEmpleado, 
-        AP.idAsistencia, -- <--- AÑADIDO
-        E.nombreEmpleado, 
-        A.fecha AS fechaAsistencia, 
-        AP.estado
+        AP.idAsistenciaPase, AP.idEmpleado, AP.idAsistencia,
+        E.nombreEmpleado, A.fecha AS fechaAsistencia, AP.estado
     FROM asistenciaspases AS AP
     INNER JOIN empleados AS E ON E.idEmpleado = AP.idEmpleado
-    INNER JOIN asistencias AS A ON A.idAsistencia = AP.idAsistencia -- <--- JOIN CORREGIDO
+    INNER JOIN asistencias AS A ON A.idAsistencia = AP.idAsistencia
     ORDER BY AP.idAsistenciaPase DESC
     """
     cursor.execute(sql)
@@ -251,56 +317,47 @@ def tbodyAsistenciasPases():
     con.close()
     return render_template("tbodyAsistenciasPases.html", asistenciaspases=registros)
 
-# --- RUTA UNIFICADA PARA CREAR Y ACTUALIZAR (MODIFICADA) ---
 @app.route("/asistenciapase", methods=["POST"])
+@login_required # <-- AÑADIDO
 def guardarAsistenciaPase():
+    # ... (código sin cambios)
     con = None
     try:
         idAsistenciaPase = request.form.get("idAsistenciaPase")
         idEmpleado = request.form.get("idEmpleado")
-        idAsistencia = request.form.get("idAsistencia") # <-- AHORA RECIBIMOS idAsistencia
+        idAsistencia = request.form.get("idAsistencia")
         estado = request.form.get("selEstado")
-
         if not all([idEmpleado, idAsistencia, estado]):
             return make_response(jsonify({"error": "Faltan datos requeridos."}), 400)
-
         con = mysql.connector.connect(**db_config)
         cursor = con.cursor()
-        
         if idAsistenciaPase:
-            # Lógica de Actualización
             sql = "UPDATE asistenciaspases SET idEmpleado = %s, idAsistencia = %s, estado = %s WHERE idAsistenciaPase = %s"
             val = (idEmpleado, idAsistencia, estado, idAsistenciaPase)
         else:
-            # Lógica de Creación
             sql = "INSERT INTO asistenciaspases (idEmpleado, idAsistencia, estado) VALUES (%s, %s, %s)"
             val = (idEmpleado, idAsistencia, estado)
-
         cursor.execute(sql, val)
         con.commit()
-        
         pusherAsistenciasPases() 
-        
         return make_response(jsonify({"message": "Operación exitosa"}), 200)
-
     except mysql.connector.Error as err:
         if con: con.rollback()
         return make_response(jsonify({"error": f"Error de base de datos: {err}"}), 500)
-
     finally:
         if con and con.is_connected():
             cursor.close()
             con.close()
 
-# =========================================================================
-# MÓDULO DEPARTAMENTOS
-# =========================================================================
 @app.route("/departamentos")
+@login_required # <-- AÑADIDO
 def departamentos():
     return render_template("departamentos.html")
 
 @app.route("/tbodyDepartamentos")
+@login_required # <-- AÑADIDO
 def tbodyDepartamentos():
+    # ... (código sin cambios)
     con = mysql.connector.connect(**db_config)
     cursor = con.cursor(dictionary=True)
     sql = "SELECT idDepartamento, NombreDepartamento, Edificio, Descripcion FROM departamento ORDER BY idDepartamento DESC"
@@ -309,28 +366,29 @@ def tbodyDepartamentos():
     con.close()
     return render_template("tbodyDepartamentos.html", departamentos=registros)
 
-# Faltaba la ruta para guardar/editar departamentos, aquí está:
 @app.route("/departamento", methods=["POST"])
+@login_required # <-- AÑADIDO
+@role_required(['Administrador']) # Solo los administradores pueden guardar
 def guardarDepartamento():
+    # ... (código sin cambios)
     idDepartamento = request.form.get("idDepartamento")
     nombre = request.form.get("txtNombreDepartamento")
     edificio = request.form.get("txtEdificio")
     descripcion = request.form.get("txtDescripcion")
-
     con = mysql.connector.connect(**db_config)
     cursor = con.cursor()
-
     if idDepartamento:
         sql = "UPDATE departamento SET NombreDepartamento = %s, Edificio = %s, Descripcion = %s WHERE idDepartamento = %s"
         val = (nombre, edificio, descripcion, idDepartamento)
     else:
         sql = "INSERT INTO departamento (NombreDepartamento, Edificio, Descripcion) VALUES (%s, %s, %s)"
         val = (nombre, edificio, descripcion)
-    
     cursor.execute(sql, val)
     con.commit()
     cursor.close()
     con.close()
     pusherDepartamentos()
-    
     return make_response(jsonify({"status": "success"}))
+
+if __name__ == '__main__':
+    app.run(debug=True, port=5001)
