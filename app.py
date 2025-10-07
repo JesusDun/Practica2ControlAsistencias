@@ -3,7 +3,7 @@
 # activate.bat
 # py -m ensurepip --upgrade
 # pip install -r requirements.txt
-# pip install bcrypt flask-login
+# pip install flask-login
 
 import os
 from functools import wraps
@@ -15,7 +15,6 @@ from flask_login import LoginManager, UserMixin, login_user, logout_user, login_
 import mysql.connector
 from flask_cors import CORS
 import pusher
-import bcrypt
 
 # --- Configuración de la base de datos ---
 db_config = {
@@ -116,13 +115,11 @@ def appLogin():
 
     if request.method == 'POST':
         usuario_ingresado = request.form.get("txtUsuario")
-        contrasena_ingresada_raw = request.form.get("txtContrasena")
+        contrasena_ingresada = request.form.get("txtContrasena")
 
-        if not usuario_ingresado or not contrasena_ingresada_raw:
+        if not usuario_ingresado or not contrasena_ingresada:
             flash("Usuario y contraseña son requeridos.", "danger")
             return redirect(url_for('appLogin'))
-
-        contrasena_ingresada = contrasena_ingresada_raw.encode('utf-8')
         
         con = None
         try:
@@ -132,10 +129,10 @@ def appLogin():
             cursor.execute(sql, (usuario_ingresado,))
             user_data = cursor.fetchone()
 
-            if user_data and bcrypt.checkpw(contrasena_ingresada, user_data['password'].encode('utf-8')):
+            # --- CAMBIO IMPORTANTE: Comparación directa de contraseñas ---
+            if user_data and contrasena_ingresada == user_data['password']:
                 user_obj = User(id=user_data['idUsuario'], username=user_data['username'], role=user_data['role'])
                 login_user(user_obj)
-                # Redirección obligatoria al dashboard
                 return redirect(url_for('dashboard'))
             else:
                 flash("Usuario o Contraseña Incorrectos", "danger")
@@ -375,3 +372,4 @@ def guardarDepartamento():
 
 if __name__ == '__main__':
     app.run(debug=True, port=5001)
+
