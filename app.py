@@ -9,7 +9,7 @@ import os
 from functools import wraps
 from flask import Flask, render_template, request, jsonify, make_response, redirect, url_for, flash
 
-# --- NUEVO: Importaciones de Flask-Login ---
+# --- Importaciones de Flask-Login ---
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 
 import mysql.connector
@@ -27,7 +27,6 @@ db_config = {
 
 app = Flask(__name__)
 CORS(app)
-# Es crucial para que Flask-Login y las sesiones funcionen
 app.config['SECRET_KEY'] = os.urandom(24) 
 
 # --- CONFIGURACIÓN DE PUSHER (sin cambios) ---
@@ -39,17 +38,14 @@ pusher_client = pusher.Pusher(
     ssl=True
 )
 
-# --- NUEVO: CONFIGURACIÓN DE FLASK-LOGIN ---
+# --- CONFIGURACIÓN DE FLASK-LOGIN (sin cambios) ---
 login_manager = LoginManager()
 login_manager.init_app(app)
-# A dónde redirigir si un usuario anónimo intenta acceder a una página protegida
 login_manager.login_view = 'appLogin'
-# Mensaje que se mostrará
 login_manager.login_message = "Por favor, inicia sesión para acceder a esta página."
 login_manager.login_message_category = "warning"
 
-# --- NUEVO: Modelo de Usuario para Flask-Login ---
-# Esta clase representa al usuario y se integra con Flask-Login
+# --- Modelo de Usuario para Flask-Login (sin cambios) ---
 class User(UserMixin):
     def __init__(self, id, username, role):
         self.id = id
@@ -74,12 +70,11 @@ class User(UserMixin):
                 cursor.close()
                 con.close()
 
-# Función requerida por Flask-Login para cargar el usuario de la sesión
 @login_manager.user_loader
 def load_user(user_id):
     return User.get(user_id)
 
-# --- NUEVO: Decorador para verificar roles ---
+# --- Decorador para verificar roles (sin cambios) ---
 def role_required(role):
     def decorator(f):
         @wraps(f)
@@ -109,57 +104,58 @@ def pusherDepartamentos():
 def landingPage():
     return render_template("landing-page.html")
 
-# --- MODIFICADO: Ahora el dashboard está protegido ---
 @app.route("/dashboard")
 @login_required
 def dashboard():
     return render_template("dashboard.html")
 
-@app.route("/login")
+# --- RUTA DE LOGIN MODIFICADA ---
+# Ahora maneja GET (mostrar formulario) y POST (procesar datos)
+@app.route("/login", methods=['GET', 'POST'])
 def appLogin():
     # Si el usuario ya está logueado, lo mandamos al dashboard
     if current_user.is_authenticated:
         return redirect(url_for('dashboard'))
-    return render_template("login.html")
 
-# --- MODIFICADO: La lógica de iniciar sesión ahora usa Flask-Login ---
-@app.route("/iniciarSesion", methods=["POST"])
-def iniciarSesion():
-    con = None
-    cursor = None
-    try:
+    # Si el método es POST, significa que el formulario fue enviado
+    if request.method == 'POST':
         usuario_ingresado = request.form.get("txtUsuario")
-        contrasena_ingresada = request.form.get("txtContrasena").encode('utf-8') # Codificar para bcrypt
+        contrasena_ingresada = request.form.get("txtContrasena").encode('utf-8')
 
         if not usuario_ingresado or not contrasena_ingresada:
             flash("Usuario y contraseña son requeridos.", "danger")
             return redirect(url_for('appLogin'))
 
-        con = mysql.connector.connect(**db_config)
-        cursor = con.cursor(dictionary=True)
-        
-        sql = "SELECT idUsuario, username, password, role FROM usuarios WHERE username = %s"
-        cursor.execute(sql, (usuario_ingresado,))
-        user_data = cursor.fetchone()
+        con = None
+        try:
+            con = mysql.connector.connect(**db_config)
+            cursor = con.cursor(dictionary=True)
+            sql = "SELECT idUsuario, username, password, role FROM usuarios WHERE username = %s"
+            cursor.execute(sql, (usuario_ingresado,))
+            user_data = cursor.fetchone()
 
-        # Verificar que el usuario exista y que la contraseña hasheada coincida
-        if user_data and bcrypt.checkpw(contrasena_ingresada, user_data['password'].encode('utf-8')):
-            # Creamos el objeto User y lo logueamos
-            user_obj = User(id=user_data['idUsuario'], username=user_data['username'], role=user_data['role'])
-            login_user(user_obj) # <-- Magia de Flask-Login
-            return redirect(url_for('dashboard'))
-        else:
-            flash("Usuario o Contraseña Incorrectos", "danger")
+            if user_data and bcrypt.checkpw(contrasena_ingresada, user_data['password'].encode('utf-8')):
+                user_obj = User(id=user_data['idUsuario'], username=user_data['username'], role=user_data['role'])
+                login_user(user_obj)
+                return redirect(url_for('dashboard'))
+            else:
+                flash("Usuario o Contraseña Incorrectos", "danger")
+                return redirect(url_for('appLogin'))
+        except mysql.connector.Error as err:
+            flash(f"Error de base de datos: {err}", "danger")
             return redirect(url_for('appLogin'))
+        finally:
+            if con and con.is_connected():
+                cursor.close()
+                con.close()
 
-    except mysql.connector.Error as err:
-        flash(f"Error de base de datos: {err}", "danger")
-        return redirect(url_for('appLogin'))
-    finally:
-        if cursor: cursor.close()
-        if con and con.is_connected(): con.close()
+    # Si el método es GET, simplemente mostramos la plantilla del login
+    return render_template("login.html")
 
-# --- NUEVO: Ruta para cerrar sesión ---
+
+# --- SE ELIMINÓ la ruta "/iniciarSesion" porque su lógica ahora está en /login ---
+
+
 @app.route("/logout")
 @login_required
 def logout():
@@ -168,13 +164,12 @@ def logout():
     return redirect(url_for('appLogin'))
 
 # =========================================================================
-# MÓDULO EMPLEADOS (PROTEGIDO)
+# MÓDULO EMPLEADOS (PROTEGIDO) (sin cambios)
 # =========================================================================
 
 @app.route("/empleados")
-@login_required # <-- AÑADIDO
+@login_required
 def empleados():
-    # ... (código sin cambios)
     con = mysql.connector.connect(**db_config)
     cursor = con.cursor(dictionary=True)
     cursor.execute("SELECT idDepartamento, NombreDepartamento FROM departamento ORDER BY NombreDepartamento ASC")
@@ -184,9 +179,8 @@ def empleados():
 
 
 @app.route("/tbodyEmpleados")
-@login_required # <-- AÑADIDO
+@login_required
 def tbodyEmpleados():
-    # ... (código sin cambios)
     con = mysql.connector.connect(**db_config)
     cursor = con.cursor(dictionary=True)
     sql = """
@@ -202,12 +196,10 @@ def tbodyEmpleados():
     con.close()
     return render_template("tbodyEmpleados.html", empleados=registros)
 
-# --- NUEVO: Ejemplo de ruta protegida por rol de Administrador ---
 @app.route("/empleado", methods=["POST"])
 @login_required
-@role_required(['Administrador']) # Solo los administradores pueden guardar
+@role_required(['Administrador'])
 def guardarEmpleado():
-    # ... (código sin cambios)
     idEmpleado = request.form.get("idEmpleado")
     nombreEmpleado = request.form.get("nombreEmpleado")
     numero = request.form.get("numero")
@@ -246,17 +238,16 @@ def guardarEmpleado():
             con.close()
 
 # =========================================================================
-# Resto de los módulos (todos protegidos)
+# Resto de los módulos (todos protegidos, sin cambios)
 # =========================================================================
 @app.route("/asistencias")
-@login_required # <-- AÑADIDO
+@login_required
 def asistencias():
     return render_template("asistencias.html")
 
 @app.route("/tbodyAsistencias")
-@login_required # <-- AÑADIDO
+@login_required
 def tbodyAsistencias():
-    # ... (código sin cambios)
     con = mysql.connector.connect(**db_config)
     cursor = con.cursor(dictionary=True)
     sql = "SELECT idAsistencia, fecha, comentarios FROM asistencias ORDER BY idAsistencia DESC"
@@ -266,9 +257,8 @@ def tbodyAsistencias():
     return render_template("tbodyAsistencias.html", asistencias=registros)
 
 @app.route("/asistencia", methods=["POST"])
-@login_required # <-- AÑADIDO
+@login_required
 def guardarAsistencia():
-    # ... (código sin cambios)
     con = mysql.connector.connect(**db_config)
     cursor = con.cursor()
     fecha = request.form["fecha"]
@@ -283,9 +273,8 @@ def guardarAsistencia():
     return make_response(jsonify({}))
 
 @app.route("/asistenciaspases")
-@login_required # <-- AÑADIDO
+@login_required
 def asistenciaspases():
-    # ... (código sin cambios)
     con = mysql.connector.connect(**db_config)
     cursor = con.cursor(dictionary=True)
     cursor.execute("SELECT idEmpleado, nombreEmpleado FROM empleados ORDER BY nombreEmpleado ASC")
@@ -297,9 +286,8 @@ def asistenciaspases():
 
 
 @app.route("/tbodyAsistenciasPases")
-@login_required # <-- AÑADIDO
+@login_required
 def tbodyAsistenciasPases():
-    # ... (código sin cambios)
     con = mysql.connector.connect(**db_config)
     cursor = con.cursor(dictionary=True)
     sql = """
@@ -318,9 +306,8 @@ def tbodyAsistenciasPases():
     return render_template("tbodyAsistenciasPases.html", asistenciaspases=registros)
 
 @app.route("/asistenciapase", methods=["POST"])
-@login_required # <-- AÑADIDO
+@login_required
 def guardarAsistenciaPase():
-    # ... (código sin cambios)
     con = None
     try:
         idAsistenciaPase = request.form.get("idAsistenciaPase")
@@ -350,14 +337,13 @@ def guardarAsistenciaPase():
             con.close()
 
 @app.route("/departamentos")
-@login_required # <-- AÑADIDO
+@login_required
 def departamentos():
     return render_template("departamentos.html")
 
 @app.route("/tbodyDepartamentos")
-@login_required # <-- AÑADIDO
+@login_required
 def tbodyDepartamentos():
-    # ... (código sin cambios)
     con = mysql.connector.connect(**db_config)
     cursor = con.cursor(dictionary=True)
     sql = "SELECT idDepartamento, NombreDepartamento, Edificio, Descripcion FROM departamento ORDER BY idDepartamento DESC"
@@ -367,10 +353,9 @@ def tbodyDepartamentos():
     return render_template("tbodyDepartamentos.html", departamentos=registros)
 
 @app.route("/departamento", methods=["POST"])
-@login_required # <-- AÑADIDO
-@role_required(['Administrador']) # Solo los administradores pueden guardar
+@login_required
+@role_required(['Administrador'])
 def guardarDepartamento():
-    # ... (código sin cambios)
     idDepartamento = request.form.get("idDepartamento")
     nombre = request.form.get("txtNombreDepartamento")
     edificio = request.form.get("txtEdificio")
@@ -392,3 +377,4 @@ def guardarDepartamento():
 
 if __name__ == '__main__':
     app.run(debug=True, port=5001)
+
