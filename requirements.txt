@@ -1,7 +1,7 @@
 Flask
-Gunicorn
 mysql-connector-python
-pytz
 Flask-Cors
 pusher
 bcrypt
+Flask-Login
+gunicorn
