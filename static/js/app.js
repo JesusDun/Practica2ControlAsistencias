@@ -1,16 +1,14 @@
+// Función para marcar la opción activa en el menú
 function activeMenuOption(href) {
-    $(".app-menu .nav-link")
-    .removeClass("active")
-    .removeAttr('aria-current')
-
-    $(`[href="${(href ? href : "#/")}"]`)
-    .addClass("active")
-    .attr("aria-current", "page")
+    $(".app-menu .nav-link").removeClass("active").removeAttr('aria-current');
+    $(`.app-menu .nav-link[href="${href}"]`).addClass("active").attr("aria-current", "page");
 }
 
-const app = angular.module("angularjsApp", ["ngRoute"])
+const app = angular.module("angularjsApp", ["ngRoute"]);
+
+// Configuración de las rutas de la aplicación
 app.config(function ($routeProvider, $locationProvider) {
-    $locationProvider.hashPrefix("")
+    $locationProvider.hashPrefix("");
 
     $routeProvider
     .when("/", {
@@ -33,268 +31,114 @@ app.config(function ($routeProvider, $locationProvider) {
         controller: "departamentosCtrl"
     })
     .otherwise({
-        redirectTo: "/"
-    })
-})
-
-app.run(["$rootScope", "$location", "$timeout", function($rootScope, $location, $timeout) {
-    // ... Código del profesor para fecha/hora y animaciones (sin cambios) ...
-    function actualizarFechaHora() {
-        lxFechaHora = luxon.DateTime
-        .now()
-        .setLocale("es")
-
-        $rootScope.angularjsHora = lxFechaHora.toFormat("hh:mm:ss a")
-        $timeout(actualizarFechaHora, 1000)
-    }
-
-    $rootScope.slide = ""
-
-    actualizarFechaHora()
-
-    $rootScope.$on("$routeChangeSuccess", function (event, current, previous) {
-        $("html").css("overflow-x", "hidden")
-        
-        const path = current.$$route.originalPath
-
-        if (path.indexOf("splash") == -1) {
-            const active = $(".app-menu .nav-link.active").parent().index()
-            const click  = $(`[href^="#${path}"]`).parent().index()
-
-            if (active != click) {
-                $rootScope.slide  = "animate__animated animate__faster animate__slideIn"
-                $rootScope.slide += ((active > click) ? "Left" : "Right")
-            }
-
-            $timeout(function () {
-                $("html").css("overflow-x", "auto")
-
-                $rootScope.slide = ""
-            }, 1000)
-
-            activeMenuOption(`#${path}`)
-        }
-    })
-}])
-
-// OBSERVACIÓN: El controlador "loginCtrl" se ha eliminado porque no es necesario
-// en el contexto del dashboard. El inicio de sesión se gestiona en una página separada.
-
-// =========================================================================
-// Controlador para Empleados 
-app.controller("empleadosCtrl", function ($scope, $http) {
-    function buscarEmpleados() {
-        $.get("/tbodyEmpleados", function (trsHTML) {
-            $("#tbodyEmpleados").html(trsHTML)
-        })
-    }
-
-    // --- Lógica de Pusher para tiempo real ---
-    Pusher.logToConsole = true;
-    var pusher = new Pusher("686124f7505c58418f23", { // Tu KEY
-      cluster: "us2"
-    });
-    var channel = pusher.subscribe("canalEmpleados");
-    channel.bind("eventoEmpleados", function(data) {
-        console.log("Evento Pusher recibido para empleados, actualizando tabla...");
-        buscarEmpleados();
-    });
-
-    // Carga inicial de datos
-    buscarEmpleados();
-
-    // --- Lógica de Formulario (con corrección de doble envío) ---
-    $(document).off("submit", "#frmEmpleado").on("submit", "#frmEmpleado", function (event) {
-        event.preventDefault();
-        
-        $.post("/empleado", $(this).serialize())
-            .done(function() {
-                // Pusher se encargará de actualizar la tabla, solo limpiamos el formulario.
-                $("#frmEmpleado")[0].reset();
-                $("#idEmpleado").val(""); 
-            })
-            .fail(function(response) {
-                alert("Error al guardar: " + (response.responseJSON ? response.responseJSON.error : "Error desconocido"));
-            });
-    });
-
-    // Evento para el botón "Editar" (sin cambios)
-    $(document).on("click", ".btn-editar-empleado", function () {
-        const id = $(this).data("id");
-        const nombre = $(this).data("nombre");
-        const numero = $(this).data("numero");
-        const fecha = $(this).data("fecha");
-        const idDepartamento = $(this).data("iddepartamento");
-
-        $("#idEmpleado").val(id);
-        $("#txtNombreEmpleado").val(nombre);
-        $("#txtNumero").val(numero);
-        $("#txtFechaIngreso").val(fecha);
-        $("#selIdDepartamento").val(idDepartamento);
+        redirectTo: "/empleados"
     });
 });
 
-// Controlador para Asistencias (Dirigida por Eventos)
-app.controller("asistenciasCtrl", function ($scope, $http) {
-    function buscarAsistencias() {
-        $.get("/tbodyAsistencias", function (trsHTML) {
-            $("#tbodyAsistencias").html(trsHTML);
-        });
-    }
-    buscarAsistencias();
-    
-    // Configuración de Pusher
+// Servicio para compartir una única instancia de Pusher
+app.factory('PusherService', function() {
     Pusher.logToConsole = true;
-    var pusher = new Pusher("686124f7505c58418f23", { // Tu KEY
-      cluster: "us2"
-    });
-    var channel = pusher.subscribe("canalAsistencias");
-    channel.bind("eventoAsistencias", function(data) {
-        buscarAsistencias();
-    });
-
-    // Botón de Editar
-    $(document).on("click", ".btn-editar-asistencia", function () {
-        const id = $(this).data("id");
-        const fecha = $(this).data("fecha");
-        const comentarios = $(this).data("comentarios");
-
-        $("#txtFecha").val(fecha);
-        $("#txtComentarios").val(comentarios);
-        
-        if ($("#hiddenId").length === 0) {
-            $("#frmAsistencia").append(`<input type="hidden" id="hiddenId" name="idAsistencia">`);
-        }
-        $("#hiddenId").val(id);
-    });
-
-    $(document).off("submit", "#frmAsistencia").on("submit", "#frmAsistencia", function (event) {
-        event.preventDefault();
-        const id = $("#hiddenId").val();
-        const url = id ? "/asistencia/editar" : "/asistencia"; // Asume que tienes una ruta para editar
-
-        $.post(url, $(this).serialize())
-            .done(function () {
-                buscarAsistencias();
-                $("#frmAsistencia")[0].reset();
-                if ($("#hiddenId").length > 0) {
-                   $("#hiddenId").remove();
-                }
-            })
-            .fail(function () {
-                alert("Hubo un error al guardar la asistencia.");
-            });
-    });
-});
-
-// =========================================================================
-// MODIFICACIÓN: Controlador para AsistenciasPases (Corregido y con Pusher)
-// =========================================================================
-app.controller("asistenciaspasesCtrl", function ($scope, $http) {
-    function buscarAsistenciasPases() {
-        $.get("/tbodyAsistenciasPases", function (trsHTML) {
-            $("#tbodyAsistenciasPases").html(trsHTML);
-        });
-    }
-
-    // --- Lógica de Pusher para tiempo real ---
-    Pusher.logToConsole = true;
-    var pusher = new Pusher("686124f7505c58418f23", { // Tu KEY
+    const pusher = new Pusher("686124f7505c58418f23", {
         cluster: "us2"
     });
-    var channel = pusher.subscribe("canalAsistenciasPases"); // Canal específico para pases
-    channel.bind("eventoAsistenciasPases", function(data) {
-        console.log("Evento Pusher recibido para pases, actualizando tabla...");
-        buscarAsistenciasPases(); // Recargamos la tabla cuando hay un cambio
+    return pusher;
+});
+
+// Bloque de ejecución principal para animaciones y reloj
+app.run(["$rootScope", "$location", "$timeout", function($rootScope, $location, $timeout) {
+    function actualizarFechaHora() {
+        $rootScope.angularjsHora = luxon.DateTime.now().setLocale("es").toFormat("hh:mm:ss a");
+        $timeout(actualizarFechaHora, 1000);
+    }
+    actualizarFechaHora();
+
+    $rootScope.$on("$routeChangeSuccess", function (event, current, previous) {
+        if (!current || !current.$$route) return;
+
+        const path = current.$$route.originalPath;
+        activeMenuOption(`#${path}`);
     });
+}]);
 
-    // Carga inicial de datos
-    buscarAsistenciasPases();
+// =========================================================================
+// CONTROLADORES
+// =========================================================================
 
-    // --- Lógica de Formulario para Guardar y Editar ---
-    $(document).off("submit", "#frmAsistenciasPase").on("submit", "#frmAsistenciasPase", function (event) {
-        event.preventDefault();
+app.controller("empleadosCtrl", function ($scope, PusherService) {
+    function buscarEmpleados() {
+        $.get("/tbodyEmpleados", (trsHTML) => $("#tbodyEmpleados").html(trsHTML));
+    }
+    const channel = PusherService.subscribe("canalEmpleados");
+    channel.bind("eventoEmpleados", buscarEmpleados);
+    buscarEmpleados();
 
-        $.post("/asistenciapase", $(this).serialize())
-            .done(function() {
-                // Pusher se encarga de actualizar, solo limpiamos el formulario.
-                $("#frmAsistenciasPase")[0].reset();
-                $("#idAsistenciaPase").val("");
+    $(document).off("submit", "#frmEmpleado").on("submit", "#frmEmpleado", function (e) {
+        e.preventDefault();
+        $.post("/empleado", $(this).serialize())
+            .done(() => {
+                this.reset();
+                $("#idEmpleado").val("");
             })
-            .fail(function(response) {
-                alert("Error al guardar el pase: " + (response.responseJSON ? response.responseJSON.error : "Error desconocido"));
-            });
+            .fail(res => alert("Error al guardar: " + (res.responseJSON?.error || "Error")));
     });
 
-    // --- Evento para el botón "Editar" ---
-    $(document).on("click", ".btn-editar-pase", function () {
-        const id = $(this).data("id");
-        const idEmpleado = $(this).data("idempleado");
-        const idAsistencia = $(this).data("idasistencia"); // <-- OBTENEMOS idAsistencia
-        const estado = $(this).data("estado");
-
-        // Rellenamos el formulario con los datos del pase a editar
-        $("#idAsistenciaPase").val(id);
-        $("#selIdEmpleado").val(idEmpleado);
-        $("#selIdAsistencia").val(idAsistencia); // <-- SELECCIONAMOS LA ASISTENCIA
-        $("#selEstado").val(estado);
-    });
-    
-    // --- Evento para el botón "Eliminar" (sin cambios, pero es bueno tenerlo aquí) ---
-     $(document).on("click", ".btn-eliminar-pase", function (event) {
-        const id = $(this).data("id");
-        if (confirm(`¿Estás seguro de eliminar el pase #${id}?`)) {
-            $.post("/asistenciapase/eliminar", { id: id })
-             .fail(function(response) {
-                alert("Error al eliminar el pase.");
-            });
-            // No es necesario llamar a buscarAsistenciasPases() aquí,
-            // Pusher se encargará de actualizar la tabla.
-        }
+    $(document).on("click", ".btn-editar-empleado", function () {
+        $("#idEmpleado").val($(this).data("id"));
+        $("#txtNombreEmpleado").val($(this).data("nombre"));
+        $("#txtNumero").val($(this).data("numero"));
+        $("#txtFechaIngreso").val($(this).data("fecha"));
+        $("#selIdDepartamento").val($(this).data("iddepartamento"));
     });
 });
 
-//Controlador para departamentos.
-app.controller("departamentosCtrl", function ($scope, $http) {
+app.controller("asistenciasCtrl", function ($scope, PusherService) {
+    function buscarAsistencias() {
+        $.get("/tbodyAsistencias", (trsHTML) => $("#tbodyAsistencias").html(trsHTML));
+    }
+    const channel = PusherService.subscribe("canalAsistencias");
+    channel.bind("eventoAsistencias", buscarAsistencias);
+    buscarAsistencias();
+});
+
+app.controller("asistenciaspasesCtrl", function ($scope, PusherService) {
+    function buscarAsistenciasPases() {
+        $.get("/tbodyAsistenciasPases", (trsHTML) => $("#tbodyAsistenciasPases").html(trsHTML));
+    }
+    const channel = PusherService.subscribe("canalAsistenciasPases");
+    channel.bind("eventoAsistenciasPases", buscarAsistenciasPases);
+    buscarAsistenciasPases();
+
+    $(document).off("submit", "#frmAsistenciasPase").on("submit", "#frmAsistenciasPase", function(e) {
+        e.preventDefault();
+        $.post("/asistenciapase", $(this).serialize())
+            .done(() => {
+                this.reset();
+                $("#idAsistenciaPase").val("");
+            })
+            .fail(res => alert("Error al guardar: " + (res.responseJSON?.error || "Error")));
+    });
+
+    $(document).on("click", ".btn-editar-pase", function () {
+        $("#idAsistenciaPase").val($(this).data("id"));
+        $("#selIdEmpleado").val($(this).data("idempleado"));
+        $("#selIdAsistencia").val($(this).data("idasistencia"));
+        $("#selEstado").val($(this).data("estado"));
+    });
+});
+
+app.controller("departamentosCtrl", function ($scope, PusherService) {
     function buscarDepartamentos() {
-        $.get("/tbodyDepartamentos", function (trsHTML) {
-            $("#tbodyDepartamentos").html(trsHTML)
-        })
+        $.get("/tbodyDepartamentos", (trsHTML) => $("#tbodyDepartamentos").html(trsHTML));
     }
-    buscarDepartamentos()
+    const channel = PusherService.subscribe("canalDepartamentos");
+    channel.bind("eventoDepartamentos", buscarDepartamentos);
+    buscarDepartamentos();
 
-    Pusher.logToConsole = true;
-    var pusher = new Pusher("686124f7505c58418f23", { // Tu KEY
-      cluster: "us2"
+    $(document).off("submit", "#frmDepartamento").on("submit", "#frmDepartamento", function(e) {
+        e.preventDefault();
+        $.post("/departamento", $(this).serialize()).done(() => {
+            this.reset();
+            $("#idDepartamento").val("");
+        });
     });
-    var channel = pusher.subscribe("canalDepartamentos");
-    channel.bind("eventoDepartamentos", function(data) {
-        console.log("Evento Pusher recibido para Departamentos, actualizando tabla...");
-        buscarDepartamentos();
-    });
-
-    $(document).on("submit", "#frmDepartamento", function (event) {
-        event.preventDefault()
-        $.post("/departamento", $(this).serialize())
-        .done(function () {
-            buscarDepartamentos()
-            $("#frmDepartamento")[0].reset()
-            $("#idDepartamento").val("")
-        })
-    })
-})
-
-const DateTime = luxon.DateTime
-let lxFechaHora
-
-document.addEventListener("DOMContentLoaded", function (event) {
-    const configFechaHora = {
-        locale: "es",
-        weekNumbers: true,
-        minuteIncrement: 15,
-        altInput: true,
-        altFormat: "d/F/Y",
-        dateFormat: "Y-m-d",
-    }
-    activeMenuOption(location.hash)
-})
+});
