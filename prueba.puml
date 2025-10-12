@@ -1,0 +1,59 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Deployment.puml
+
+' --- Definición de las fuentes de los Sprites ---
+!define FONTAWESOME6 https://raw.githubusercontent.com/tupadr3/plantuml-icon-font-sprites/v3.0.0/icons/font-awesome-6
+!define DEVICONS https://raw.githubusercontent.com/tupadr3/plantuml-icon-font-sprites/v3.0.0/icons/devicons
+!define DEVICONS2 https://raw.githubusercontent.com/tupadr3/plantuml-icon-font-sprites/v3.0.0/icons/devicons2
+
+' --- Inclusión de los Sprites específicos ---
+!include FONTAWESOME6/users.puml
+!include FONTAWESOME6/user_tie.puml
+!include DEVICONS2/angularjs.puml
+!include DEVICONS/python.puml
+!include DEVICONS/mysql.puml
+!include DEVICONS2/flask_original.puml
+!include DEVICONS2/github_original.puml
+
+LAYOUT_WITH_LEGEND()
+
+' --- Actores ---
+Person(developer, "Desarrollador", "Escribe y sube el código fuente.", $sprite="user_tie")
+Person(admin, "Administrador", "Gestiona el sistema a través de la web.", $sprite="user_tie")
+Person(empleado, "Empleado", "Sus datos son gestionados por el sistema.", $sprite="users")
+
+' --- Sistemas de Despliegue y Externos ---
+System_Ext(github, "GitHub", "Repositorio de código fuente.", $sprite="github_original")
+System_Ext(pusher, "Pusher", "API para notificaciones en tiempo real.")
+
+Deployment_Node(render, "Plataforma Render", "PaaS - Plataforma como Servicio") {
+    System_Boundary(app_boundary, "Sistema de Control de Asistencias") {
+        ' --- Contenedores ---
+        Container(spa, "Aplicación Web (SPA)", "AngularJS, HTML5, jQuery", "Interfaz de usuario.", $sprite="angularjs_plain")
+        Container(api, "API Backend", "Python, Flask", "Lógica de negocio.", $sprite="python")
+        ContainerDb(db, "Base de Datos", "MySQL", "Almacenamiento de datos.", $sprite="mysql")
+
+        ' --- Componentes (dentro del API) ---
+        Component(app_py, "app.py", "Flask", "Punto de entrada de la aplicación, rutas y lógica principal.", $sprite="flask_original")
+    }
+}
+
+' --- Relaciones de Despliegue ---
+Rel(developer, github, "Sube código (git push)")
+Rel(github, render, "Despliega automáticamente al recibir cambios (Webhook)")
+
+' --- Relaciones de Uso ---
+Rel(admin, spa, "Usa", "HTTPS")
+Rel_Back(spa, api, "Llama al API", "HTTPS/AJAX")
+Rel_Back(api, spa, "Responde con datos", "JSON/HTTPS")
+Rel(api, db, "Lee/Escribe", "SQL")
+Rel(api, app_py, "Implementado con")
+
+' --- Relaciones con Sistemas Externos ---
+Rel(app_py, pusher, "Envía eventos", "API Call")
+Rel(spa, pusher, "Se suscribe a eventos", "WebSocket")
+Rel_Back(empleado, db, "Sus datos son gestionados")
+
+@enduml
