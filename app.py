@@ -329,6 +329,27 @@ def guardarAsistenciaPase():
             cursor.close()
             con.close()
 
+@app.route("/asistenciapase/<idAsistenciaPase>", methods=["DELETE"])
+@login_required
+def eliminarAsistenciaPase(idAsistenciaPase):
+    con = None
+    try:
+        con = mysql.connector.connect(**db_config)
+        cursor = con.cursor()
+        sql = "DELETE FROM asistenciaspases WHERE idAsistenciaPase = %s"
+        val = (idAsistenciaPase,)
+        cursor.execute(sql, val)
+        con.commit()
+        pusherAsistenciasPases() 
+        return make_response(jsonify({"message": "Registro eliminado exitosamente"}), 200)
+    except mysql.connector.Error as err:
+        if con: con.rollback()
+        return make_response(jsonify({"error": f"Error de base de datos: {err}"}), 500)
+    finally:
+        if con and con.is_connected():
+            cursor.close()
+            con.close()
+
 @app.route("/departamentos")
 @login_required
 @role_required(['Administrador'])
