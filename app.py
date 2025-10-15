@@ -26,7 +26,7 @@ db_config = {
 
 app = Flask(__name__)
 CORS(app)
-app.config['SECRET_KEY'] = os.urandom(24)
+app.config['SECRET_KEY'] = os.urandom(24) 
 
 # --- CONFIGURACIÓN DE PUSHER ---
 pusher_client = pusher.Pusher(
@@ -129,6 +129,7 @@ def appLogin():
             cursor.execute(sql, (usuario_ingresado,))
             user_data = cursor.fetchone()
 
+            # --- CAMBIO IMPORTANTE: Comparación directa de contraseñas ---
             if user_data and contrasena_ingresada == user_data['password']:
                 user_obj = User(id=user_data['idUsuario'], username=user_data['username'], role=user_data['role'])
                 login_user(user_obj)
@@ -157,12 +158,12 @@ def logout():
     return redirect(url_for('appLogin'))
 
 # =========================================================================
-# MÓDULOS PROTEGIDOS - EMPLEADOS
+# MÓDULOS PROTEGIDOS
 # =========================================================================
 
 @app.route("/empleados")
 @login_required
-@role_required(['Administrador'])
+@role_required(['Administrado'])
 def empleados():
     con = mysql.connector.connect(**db_config)
     cursor = con.cursor(dictionary=True)
@@ -170,6 +171,7 @@ def empleados():
     departamentos = cursor.fetchall()
     con.close()
     return render_template("empleados.html", departamentos=departamentos)
+
 
 @app.route("/tbodyEmpleados")
 @login_required
@@ -221,15 +223,16 @@ def guardarEmpleado():
         pusherEmpleados()
         
         return make_response(jsonify({"message": "Operación exitosa"}), 200)
+
     except mysql.connector.Error as err:
         if con: con.rollback()
         return make_response(jsonify({"error": f"Error de base de datos: {err}"}), 500)
+
     finally:
         if con and con.is_connected():
             cursor.close()
             con.close()
 
-# --- ¡NUEVA RUTA AÑADIDA PARA ELIMINAR! ---
 @app.route("/empleado/<int:id_empleado>", methods=["DELETE"])
 @login_required
 @role_required(['Administrador'])
@@ -239,28 +242,29 @@ def eliminarEmpleado(id_empleado):
         con = mysql.connector.connect(**db_config)
         cursor = con.cursor()
         
-        # Eliminamos los registros relacionados en 'asistenciaspases' para evitar errores
-        cursor.execute("DELETE FROM asistenciaspases WHERE idEmpleado = %s", (id_empleado,))
-        
-        # Eliminamos al empleado
-        cursor.execute("DELETE FROM empleados WHERE idEmpleado = %s", (id_empleado,))
+        # Primero, eliminamos los registros relacionados en 'asistenciaspases' para evitar errores de clave foránea
+        sql_delete_related = "DELETE FROM asistenciaspases WHERE idEmpleado = %s"
+        cursor.execute(sql_delete_related, (id_empleado,))
+
+        # Ahora, eliminamos al empleado
+        sql_delete_empleado = "DELETE FROM empleados WHERE idEmpleado = %s"
+        cursor.execute(sql_delete_empleado, (id_empleado,))
         
         con.commit()
-        pusherEmpleados()
+        
+        pusherEmpleados() # Notifica al frontend para que se actualice la tabla
+        
         return make_response(jsonify({"message": "Empleado eliminado exitosamente"}), 200)
+
     except mysql.connector.Error as err:
         if con: con.rollback()
+        # Devuelve un mensaje de error más específico
         return make_response(jsonify({"error": f"Error de base de datos: {err}"}), 500)
+
     finally:
         if con and con.is_connected():
             cursor.close()
             con.close()
-
-# =========================================================================
-# OTROS MÓDULOS
-# =========================================================================
-
-# Parte de Asistencias
 
 @app.route("/asistencias")
 @login_required
@@ -281,70 +285,19 @@ def tbodyAsistencias():
 @app.route("/asistencia", methods=["POST"])
 @login_required
 def guardarAsistencia():
-    # 1. Obtener los datos del formulario
-    id_asistencia = request.form.get("id") # Este viene del campo hiddenId del JS
+    con = mysql.connector.connect(**db_config)
+    cursor = con.cursor()
     fecha = request.form["fecha"]
     comentarios = request.form["comentarios"]
+    sql = "INSERT INTO asistencias (fecha, comentarios) VALUES (%s, %s)"
+    val = (fecha, comentarios)
+    cursor.execute(sql, val)
+    con.commit()
+    cursor.close()
+    con.close()
+    pusherAsistencias()
+    return make_response(jsonify({}))
 
-    con = None
-    try:
-        con = mysql.connector.connect(**db_config)
-        cursor = con.cursor()
-
-        if id_asistencia:
-            # --- LÓGICA DE ACTUALIZACIÓN (UPDATE) ---
-            sql = "UPDATE asistencias SET fecha = %s, comentarios = %s WHERE idAsistencia = %s"
-            val = (fecha, comentarios, id_asistencia)
-        else:
-            # --- LÓGICA DE CREACIÓN (INSERT) ---
-            sql = "INSERT INTO asistencias (fecha, comentarios) VALUES (%s, %s)"
-            val = (fecha, comentarios)
-
-        cursor.execute(sql, val)
-        con.commit()
-        
-        # Notificar a Pusher (para actualizar la tabla en el frontend)
-        pusherAsistencias()
-        return make_response(jsonify(success=True), 200)
-
-    except mysql.connector.Error as err:
-        if con: con.rollback()
-        return make_response(jsonify(success=False, message=f"Error de base de datos: {err}"), 500)
-    finally:
-        if con and con.is_connected():
-            cursor.close()
-            con.close()
-
-# --- NUEVA RUTA PARA ELIMINAR (DELETE) ---
-@app.route("/asistencia/eliminar", methods=["POST"])
-@login_required
-def eliminarAsistencia():
-    id_asistencia = request.form.get("id")
-    
-    if not id_asistencia:
-        return make_response(jsonify(success=False, message="ID no proporcionado."), 400)
-
-    con = None
-    try:
-        con = mysql.connector.connect(**db_config)
-        cursor = con.cursor()
-        
-        # Lógica de eliminación
-        sql = "DELETE FROM asistencias WHERE idAsistencia = %s"
-        cursor.execute(sql, (id_asistencia,))
-        con.commit()
-        
-        # Notificar a Pusher
-        pusherAsistencias()
-        return make_response(jsonify(success=True), 200)
-
-    except mysql.connector.Error as err:
-        if con: con.rollback()
-        return make_response(jsonify(success=False, message=f"Error de base de datos: {err}"), 500)
-    finally:
-        if con and con.is_connected():
-            cursor.close()
-            con.close()
 @app.route("/asistenciaspases")
 @login_required
 def asistenciaspases():
@@ -530,4 +483,3 @@ def eliminarDepartamento(idDepartamento):
 
 if __name__ == '__main__':
     app.run(debug=True, port=5001)
-
