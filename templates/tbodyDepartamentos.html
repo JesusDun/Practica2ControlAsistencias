@@ -4,5 +4,18 @@
     <td>{{ departamento.NombreDepartamento }}</td>
     <td>{{ departamento.Edificio }}</td>
     <td>{{ departamento.Descripcion }}</td>
+    <td class="text-end">
+        <button class="btn btn-warning btn-sm btnEditar" 
+                data-id="{{ departamento.idDepartamento }}"
+                data-nombre="{{ departamento.NombreDepartamento }}"
+                data-edificio="{{ departamento.Edificio }}"
+                data-descripcion="{{ departamento.Descripcion }}">
+            Editar
+        </button>
+        <button class="btn btn-danger btn-sm btnEliminar" 
+                data-id="{{ departamento.idDepartamento }}">
+            Eliminar
+        </button>
+    </td>
 </tr>
 {% endfor %}
