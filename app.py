@@ -163,7 +163,7 @@ def logout():
 
 @app.route("/empleados")
 @login_required
-@role_required(['Administrador'])
+@role_required(['Administrado'])
 def empleados():
     con = mysql.connector.connect(**db_config)
     cursor = con.cursor(dictionary=True)
@@ -226,6 +226,39 @@ def guardarEmpleado():
 
     except mysql.connector.Error as err:
         if con: con.rollback()
+        return make_response(jsonify({"error": f"Error de base de datos: {err}"}), 500)
+
+    finally:
+        if con and con.is_connected():
+            cursor.close()
+            con.close()
+
+@app.route("/empleado/<int:id_empleado>", methods=["DELETE"])
+@login_required
+@role_required(['Administrador'])
+def eliminarEmpleado(id_empleado):
+    con = None
+    try:
+        con = mysql.connector.connect(**db_config)
+        cursor = con.cursor()
+        
+        # Primero, eliminamos los registros relacionados en 'asistenciaspases' para evitar errores de clave foránea
+        sql_delete_related = "DELETE FROM asistenciaspases WHERE idEmpleado = %s"
+        cursor.execute(sql_delete_related, (id_empleado,))
+
+        # Ahora, eliminamos al empleado
+        sql_delete_empleado = "DELETE FROM empleados WHERE idEmpleado = %s"
+        cursor.execute(sql_delete_empleado, (id_empleado,))
+        
+        con.commit()
+        
+        pusherEmpleados() # Notifica al frontend para que se actualice la tabla
+        
+        return make_response(jsonify({"message": "Empleado eliminado exitosamente"}), 200)
+
+    except mysql.connector.Error as err:
+        if con: con.rollback()
+        # Devuelve un mensaje de error más específico
         return make_response(jsonify({"error": f"Error de base de datos: {err}"}), 500)
 
     finally:
