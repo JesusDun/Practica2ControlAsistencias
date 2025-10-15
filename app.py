@@ -400,6 +400,39 @@ def guardarDepartamento():
     pusherDepartamentos()
     return make_response(jsonify({"status": "success"}))
 
+@app.route("/departamento/<int:idDepartamento>", methods=["GET"])
+@login_required
+@role_required(['Administrador'])
+def obtenerDepartamento(idDepartamento):
+    con = mysql.connector.connect(**db_config)
+    cursor = con.cursor(dictionary=True)
+    cursor.execute("SELECT * FROM departamento WHERE idDepartamento = %s", (idDepartamento,))
+    registro = cursor.fetchone()
+    cursor.close()
+    con.close()
+    return make_response(jsonify(registro), 200)
+
+@app.route("/departamento/<int:idDepartamento>", methods=["DELETE"])
+@login_required
+@role_required(['Administrador'])
+def eliminarDepartamento(idDepartamento):
+    con = None
+    try:
+        con = mysql.connector.connect(**db_config)
+        cursor = con.cursor()
+        cursor.execute("DELETE FROM departamento WHERE idDepartamento = %s", (idDepartamento,))
+        con.commit()
+        cursor.close()
+        con.close()
+        pusherDepartamentos()
+        return make_response(jsonify({"status": "success"}), 200)
+    except mysql.connector.Error as err:
+        if con: con.rollback()
+        return make_response(jsonify({"error": str(err)}), 500)
+    finally:
+        if con and con.is_connected():
+            con.close()
+
 if __name__ == '__main__':
     app.run(debug=True, port=5001)
 
