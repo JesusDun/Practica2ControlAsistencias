@@ -232,8 +232,10 @@ app.controller("asistenciaspasesCtrl", function ($scope, PusherService) {
 app.controller("departamentosCtrl", function ($scope, PusherService) {
     console.log("departamentosCtrl activo");
 
-    function buscarDepartamentos() {
-        $.get("/tbodyDepartamentos", (trsHTML) => $("#tbodyDepartamentos").html(trsHTML));
+    function buscarDepartamentos(filtro = "") {
+        $.get("/tbodyDepartamentos", { busqueda: filtro }, (trsHTML) => {
+            $("#tbodyDepartamentos").html(trsHTML);
+        });
     }
 
     const channel = PusherService.subscribe("canalDepartamentos");
