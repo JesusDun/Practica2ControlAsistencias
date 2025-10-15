@@ -150,19 +150,49 @@ app.controller("asistenciaspasesCtrl", function ($scope, PusherService) {
     });
 });
 
+
 app.controller("departamentosCtrl", function ($scope, PusherService) {
+    console.log("departamentosCtrl activo");
+
     function buscarDepartamentos() {
         $.get("/tbodyDepartamentos", (trsHTML) => $("#tbodyDepartamentos").html(trsHTML));
     }
+
     const channel = PusherService.subscribe("canalDepartamentos");
     channel.bind("eventoDepartamentos", buscarDepartamentos);
+
     buscarDepartamentos();
 
-    $(document).off("submit", "#frmDepartamento").on("submit", "#frmDepartamento", function(e) {
+    $(document).off("submit", "#frmDepartamento").on("submit", "#frmDepartamento", function (e) {
         e.preventDefault();
         $.post("/departamento", $(this).serialize()).done(() => {
             this.reset();
             $("#idDepartamento").val("");
         });
     });
+
+    $(document).off("click", ".btnEditar").on("click", ".btnEditar", function () {
+        $("#idDepartamento").val($(this).data("id"));
+        $("#txtNombreDepartamento").val($(this).data("nombre"));
+        $("#txtEdificio").val($(this).data("edificio"));
+        $("#txtDescripcion").val($(this).data("descripcion"));
+        $("html, body").animate({ scrollTop: 0 }, "fast");
+    });
+    
+    $(document).off("click", ".btnEliminar").on("click", ".btnEliminar", function () {
+        const id = $(this).data("id");
+        if (confirm("¿Deseas eliminar este departamento?")) {
+            $.ajax({
+                url: `/departamento/${id}`,
+                type: "DELETE",
+                success: function () {
+                    buscarDepartamentos();
+                },
+                error: function (xhr) {
+                    alert("Error al eliminar: " + xhr.responseText);
+                }
+            });
+        }
+    });
 });
+
