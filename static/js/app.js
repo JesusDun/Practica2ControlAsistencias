@@ -95,14 +95,88 @@ app.controller("empleadosCtrl", function ($scope, PusherService) {
 
 // Controlador de Asistencias
 app.controller("asistenciasCtrl", function ($scope, PusherService) {
+
+    // Función para recargar la tabla de asistencias desde el servidor
     function buscarAsistencias() {
-        $.get("/tbodyAsistencias", (trsHTML) => $("#tbodyAsistencias").html(trsHTML));
+        $.get("/tbodyAsistencias", (trsHTML) => {
+            $("#tbodyAsistencias").html(trsHTML);
+        });
     }
+
+    // Suscripción a Pusher para actualizaciones en tiempo real
     const channel = PusherService.subscribe("canalAsistencias");
     channel.bind("eventoAsistencias", buscarAsistencias);
-    buscarAsistencias();
-});
 
+    // Cargar las asistencias al iniciar el controlador
+    buscarAsistencias();
+
+    // --- Lógica para Guardar/Actualizar Asistencia ---
+    $("#frmAsistencia").submit(function (e) {
+        e.preventDefault(); // Evitar el envío normal del formulario
+
+        const id = $("#hiddenId").val();
+        const fecha = $("#txtFecha").val();
+        const comentarios = $("#txtComentarios").val();
+
+        $.post("/asistencia", {
+            id: id,
+            fecha: fecha,
+            comentarios: comentarios
+        }, function (response) {
+            if (response.success) {
+                // Limpiar el formulario después de guardar/actualizar
+                $("#frmAsistencia")[0].reset();
+                $("#hiddenId").val(""); // Asegurarse de limpiar el ID oculto
+
+                // Notificar a Pusher para actualizar la tabla en todos los clientes
+                PusherService.trigger("canalAsistencias", "eventoAsistencias");
+                alert("Asistencia guardada/actualizada con éxito.");
+            } else {
+                alert("Error al guardar/actualizar la asistencia: " + response.message);
+            }
+        }).fail(function () {
+            alert("Error de comunicación con el servidor.");
+        });
+    });
+
+    // --- Lógica para Editar Asistencia (Delegación de Eventos) ---
+    // Usamos 'document' para la delegación ya que #tbodyAsistencias se actualiza.
+    $(document).on("click", ".btn-editar-asistencia", function () {
+        const id = $(this).data("id");
+        const fecha = $(this).data("fecha");
+        const comentarios = $(this).data("comentarios");
+
+        // Rellenar el formulario con los datos de la asistencia a editar
+        $("#hiddenId").val(id);
+        $("#txtFecha").val(fecha);
+        $("#txtComentarios").val(comentarios);
+
+        // Opcional: Desplazar la vista al formulario si está muy abajo
+        $('html, body').animate({
+            scrollTop: $("#frmAsistencia").offset().top - 100 // Ajusta el -100 si es necesario
+        }, 500);
+    });
+
+    // --- Lógica para Eliminar Asistencia (Delegación de Eventos) ---
+    $(document).on("click", ".btn-eliminar-asistencia", function () {
+        const id = $(this).data("id");
+
+        if (confirm("¿Estás seguro de que quieres eliminar esta asistencia?")) {
+            $.post("/asistencia/eliminar", { id: id }, function (response) {
+                if (response.success) {
+                    // Notificar a Pusher para actualizar la tabla en todos los clientes
+                    PusherService.trigger("canalAsistencias", "eventoAsistencias");
+                    alert("Asistencia eliminada con éxito.");
+                } else {
+                    alert("Error al eliminar la asistencia: " + response.message);
+                }
+            }).fail(function () {
+                alert("Error de comunicación con el servidor.");
+            });
+        }
+    });
+
+});
 // Controlador de Pases Asistencias
 app.controller("asistenciaspasesCtrl", function ($scope, PusherService) {
     function buscarAsistenciasPases(busqueda = "") {
