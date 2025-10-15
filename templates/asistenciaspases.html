@@ -35,6 +35,13 @@
     </div>
 </form>
 
+<form id="frmBusqueda" class="mb-3">
+    <div class="input-group">
+        <input type="text" id="txtBusqueda" class="form-control" placeholder="Buscar por nombre de empleado...">
+        <button class="btn btn-outline-secondary" type="submit">Buscar</button>
+    </div>
+</form>
+
 <div class="table-responsive">
     <table class="table table-sm">
         <thead class="table-active">
@@ -49,3 +56,58 @@
         <tbody id="tbodyAsistenciasPases"></tbody>
     </table>
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const tbody = document.getElementById('tbodyAsistenciasPases');
+
+        // Función para cargar la tabla (con o sin filtro de búsqueda)
+        function cargarTabla(busqueda = '') {
+            const url = busqueda ? `/tbodyAsistenciasPases?busqueda=${encodeURIComponent(busqueda)}` : '/tbodyAsistenciasPases';
+            fetch(url)
+                .then(response => response.text())
+                .then(html => {
+                    tbody.innerHTML = html;
+                })
+                .catch(error => console.warn('Error al cargar la tabla:', error));
+        }
+
+        // Carga inicial de la tabla
+        cargarTabla();
+
+        // Event Listener para el formulario de búsqueda
+        document.getElementById('frmBusqueda').addEventListener('submit', function (e) {
+            e.preventDefault();
+            const busqueda = document.getElementById('txtBusqueda').value;
+            cargarTabla(busqueda);
+        });
+
+        // Event delegation para los botones de eliminar
+        tbody.addEventListener('click', function (e) {
+            if (e.target.classList.contains('btn-eliminar-pase')) {
+                const id = e.target.dataset.id;
+                
+                if (confirm('¿Estás seguro de que deseas eliminar este registro?')) {
+                    fetch(`/asistenciapase/${id}`, {
+                        method: 'DELETE',
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.message) {
+                            console.log(data.message);
+                            // Recargamos la tabla para que se reflejen los cambios
+                            cargarTabla(document.getElementById('txtBusqueda').value); 
+                        } else {
+                            console.error(data.error);
+                            alert('Error al eliminar el registro.');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('Ocurrió un error en la comunicación con el servidor.');
+                    });
+                }
+            }
+        });
+    });
+</script>
