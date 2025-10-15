@@ -369,14 +369,27 @@ def departamentos():
 @login_required
 @role_required(['Administrador'])
 def tbodyDepartamentos():
+    busqueda = request.args.get('busqueda', '').strip()
+    
     con = mysql.connector.connect(**db_config)
     cursor = con.cursor(dictionary=True)
-    sql = "SELECT idDepartamento, NombreDepartamento, Edificio, Descripcion FROM departamento ORDER BY idDepartamento DESC"
-    cursor.execute(sql)
+    
+    sql = """
+        SELECT idDepartamento, NombreDepartamento, Edificio, Descripcion
+        FROM departamento
+    """
+    valores = ()
+    
+    if busqueda:
+        sql += " WHERE NombreDepartamento LIKE %s OR Edificio LIKE %s"
+        valores = (f"%{busqueda}%", f"%{busqueda}%")
+    
+    sql += " ORDER BY idDepartamento DESC"
+    cursor.execute(sql, valores)
     registros = cursor.fetchall()
     con.close()
     return render_template("tbodyDepartamentos.html", departamentos=registros)
-
+    
 @app.route("/departamento", methods=["POST"])
 @login_required
 @role_required(['Administrador'])
