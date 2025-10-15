@@ -4,16 +4,22 @@
     <td>{{ empleado.nombreEmpleado }}</td>
     <td>{{ empleado.numero }}</td>
     <td>{{ empleado.fechaIngreso }}</td>
-    
     <td>{{ empleado.NombreDepartamento }}</td>
-    
-    <td>
+    <td class="text-end">
         <button class="btn btn-warning btn-sm btn-editar-empleado" 
                 data-id="{{ empleado.idEmpleado }}"
                 data-nombre="{{ empleado.nombreEmpleado }}"
                 data-numero="{{ empleado.numero }}"
                 data-fecha="{{ empleado.fechaIngreso }}"
-                data-iddepartamento="{{ empleado.idDepartamento }}">Editar</button>
+                data-iddepartamento="{{ empleado.idDepartamento }}">
+            Editar
+        </button>
+        
+        <button class="btn btn-danger btn-sm btn-eliminar-empleado" 
+                data-id="{{ empleado.idEmpleado }}"
+                data-nombre="{{ empleado.nombreEmpleado }}">
+            Eliminar
+        </button>
     </td>
 </tr>
 {% endfor %}
