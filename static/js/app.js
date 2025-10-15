@@ -101,11 +101,13 @@ app.controller("asistenciasCtrl", function ($scope, PusherService) {
 });
 
 app.controller("asistenciaspasesCtrl", function ($scope, PusherService) {
-    function buscarAsistenciasPases() {
-        $.get("/tbodyAsistenciasPases", (trsHTML) => $("#tbodyAsistenciasPases").html(trsHTML));
+    function buscarAsistenciasPases(busqueda = "") {
+        const url = busqueda ? `/tbodyAsistenciasPases?busqueda=${encodeURIComponent(busqueda)}` : '/tbodyAsistenciasPases';
+        $.get(url, (trsHTML) => $("#tbodyAsistenciasPases").html(trsHTML));
     }
     const channel = PusherService.subscribe("canalAsistenciasPases");
-    channel.bind("eventoAsistenciasPases", buscarAsistenciasPases);
+    channel.bind("eventoAsistenciasPases", () => buscarAsistenciasPases($("#txtBusqueda").val()));
+
     buscarAsistenciasPases();
 
     $(document).off("submit", "#frmAsistenciasPase").on("submit", "#frmAsistenciasPase", function(e) {
@@ -123,6 +125,28 @@ app.controller("asistenciaspasesCtrl", function ($scope, PusherService) {
         $("#selIdEmpleado").val($(this).data("idempleado"));
         $("#selIdAsistencia").val($(this).data("idasistencia"));
         $("#selEstado").val($(this).data("estado"));
+    });
+
+    $(document).off("submit", "#frmBusqueda").on("submit", "#frmBusqueda", function(e) {
+        e.preventDefault();
+        const busqueda = $("#txtBusqueda").val();
+        buscarAsistenciasPases(busqueda);
+    });
+
+    $(document).off("click", ".btn-eliminar-pase").on("click", ".btn-eliminar-pase", function() {
+        const id = $(this).data("id");
+        if (confirm('¿Estás seguro de que deseas eliminar este registro?')) {
+            $.ajax({
+                url: `/asistenciapase/${id}`,
+                type: 'DELETE',
+                success: function(response) {
+                    console.log(response.message);
+                },
+                error: function(res) {
+                    alert("Error al eliminar: " + (res.responseJSON?.error || "Error de servidor"));
+                }
+            });
+        }
     });
 });
 
