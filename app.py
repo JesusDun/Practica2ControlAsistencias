@@ -281,8 +281,11 @@ def asistenciaspases():
 @app.route("/tbodyAsistenciasPases")
 @login_required
 def tbodyAsistenciasPases():
+    busqueda = request.args.get('busqueda', '')
+    
     con = mysql.connector.connect(**db_config)
     cursor = con.cursor(dictionary=True)
+    
     sql = """
     SELECT 
         AP.idAsistenciaPase, AP.idEmpleado, AP.idAsistencia,
@@ -290,9 +293,15 @@ def tbodyAsistenciasPases():
     FROM asistenciaspases AS AP
     INNER JOIN empleados AS E ON E.idEmpleado = AP.idEmpleado
     INNER JOIN asistencias AS A ON A.idAsistencia = AP.idAsistencia
-    ORDER BY AP.idAsistenciaPase DESC
     """
-    cursor.execute(sql)
+    
+    if busqueda:
+        sql += " WHERE E.nombreEmpleado LIKE %s"
+        cursor.execute(sql, (f"%{busqueda}%",))
+    else:
+        sql += " ORDER BY AP.idAsistenciaPase DESC"
+        cursor.execute(sql)
+        
     registros = cursor.fetchall()
     cursor.close()
     con.close()
