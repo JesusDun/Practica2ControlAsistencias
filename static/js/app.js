@@ -64,6 +64,8 @@ app.run(["$rootScope", "$location", "$timeout", function($rootScope, $location, 
 // CONTROLADORES
 // =========================================================================
 
+
+// Controlador de Empleados
 app.controller("empleadosCtrl", function ($scope, PusherService) {
     function buscarEmpleados() {
         $.get("/tbodyEmpleados", (trsHTML) => $("#tbodyEmpleados").html(trsHTML));
@@ -91,6 +93,7 @@ app.controller("empleadosCtrl", function ($scope, PusherService) {
     });
 });
 
+// Controlador de Asistencias
 app.controller("asistenciasCtrl", function ($scope, PusherService) {
     function buscarAsistencias() {
         $.get("/tbodyAsistencias", (trsHTML) => $("#tbodyAsistencias").html(trsHTML));
@@ -100,6 +103,7 @@ app.controller("asistenciasCtrl", function ($scope, PusherService) {
     buscarAsistencias();
 });
 
+// Controlador de Pases Asistencias
 app.controller("asistenciaspasesCtrl", function ($scope, PusherService) {
     function buscarAsistenciasPases(busqueda = "") {
         const url = busqueda ? `/tbodyAsistenciasPases?busqueda=${encodeURIComponent(busqueda)}` : '/tbodyAsistenciasPases';
@@ -150,7 +154,7 @@ app.controller("asistenciaspasesCtrl", function ($scope, PusherService) {
     });
 });
 
-
+// Controlador de Departamentos
 app.controller("departamentosCtrl", function ($scope, PusherService) {
     console.log("departamentosCtrl activo");
 
