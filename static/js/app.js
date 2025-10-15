@@ -64,8 +64,6 @@ app.run(["$rootScope", "$location", "$timeout", function($rootScope, $location, 
 // CONTROLADORES
 // =========================================================================
 
-
-// Controlador de Empleados
 app.controller("empleadosCtrl", function ($scope, PusherService) {
     function buscarEmpleados() {
         $.get("/tbodyEmpleados", (trsHTML) => $("#tbodyEmpleados").html(trsHTML));
@@ -90,6 +88,28 @@ app.controller("empleadosCtrl", function ($scope, PusherService) {
         $("#txtNumero").val($(this).data("numero"));
         $("#txtFechaIngreso").val($(this).data("fecha"));
         $("#selIdDepartamento").val($(this).data("iddepartamento"));
+    });
+
+    // --- ¡NUEVA LÓGICA AÑADIDA PARA ELIMINAR! ---
+    $(document).on("click", ".btn-eliminar-empleado", function () {
+        const id = $(this).data("id");
+        const nombre = $(this).data("nombre");
+
+        // Pedir confirmación antes de borrar
+        if (confirm(`¿Estás seguro de que deseas eliminar a ${nombre}?`)) {
+            $.ajax({
+                url: `/empleado/${id}`,
+                type: 'DELETE',
+                success: function(response) {
+                    // No es necesario hacer nada aquí, Pusher se encargará de refrescar la tabla
+                    console.log(response.message);
+                },
+                error: function(xhr) {
+                    const errorMsg = xhr.responseJSON ? xhr.responseJSON.error : "Error desconocido.";
+                    alert(`No se pudo eliminar al empleado. Error: ${errorMsg}`);
+                }
+            });
+        }
     });
 });
 
