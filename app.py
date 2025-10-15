@@ -267,29 +267,87 @@ def asistencias():
 @app.route("/tbodyAsistencias")
 @login_required
 def tbodyAsistencias():
-    con = mysql.connector.connect(**db_config)
-    cursor = con.cursor(dictionary=True)
-    sql = "SELECT idAsistencia, fecha, comentarios FROM asistencias ORDER BY idAsistencia DESC"
-    cursor.execute(sql)
-    registros = cursor.fetchall()
-    con.close()
-    return render_template("tbodyAsistencias.html", asistencias=registros)
+    con = None # Inicializar a None para el finally
+    cursor = None
+    try:
+        con = mysql.connector.connect(**db_config)
+        cursor = con.cursor(dictionary=True)
+        sql = "SELECT idAsistencia, fecha, comentarios FROM asistencias ORDER BY idAsistencia DESC"
+        cursor.execute(sql)
+        registros = cursor.fetchall()
+        return render_template("tbodyAsistencias.html", asistencias=registros)
+    except mysql.connector.Error as err:
+        print(f"Error en tbodyAsistencias: {err}")
+        # En caso de error, devolver una respuesta vacía o con un mensaje de error
+        return make_response(jsonify(success=False, message="Error al cargar asistencias."), 500)
+    finally:
+        if cursor: cursor.close()
+        if con and con.is_connected(): con.close()
+
 
 @app.route("/asistencia", methods=["POST"])
 @login_required
 def guardarAsistencia():
-    con = mysql.connector.connect(**db_config)
-    cursor = con.cursor()
+    id_asistencia = request.form.get("id")
     fecha = request.form["fecha"]
     comentarios = request.form["comentarios"]
-    sql = "INSERT INTO asistencias (fecha, comentarios) VALUES (%s, %s)"
-    val = (fecha, comentarios)
-    cursor.execute(sql, val)
-    con.commit()
-    cursor.close()
-    con.close()
-    pusherAsistencias()
-    return make_response(jsonify({}))
+
+    con = None
+    cursor = None
+    try:
+        con = mysql.connector.connect(**db_config)
+        cursor = con.cursor()
+
+        if id_asistencia:
+            sql = "UPDATE asistencias SET fecha = %s, comentarios = %s WHERE idAsistencia = %s"
+            val = (fecha, comentarios, id_asistencia)
+        else:
+            sql = "INSERT INTO asistencias (fecha, comentarios) VALUES (%s, %s)"
+            val = (fecha, comentarios)
+
+        cursor.execute(sql, val)
+        con.commit()
+        
+        pusherAsistencias()
+        return make_response(jsonify(success=True), 200)
+
+    except mysql.connector.Error as err:
+        print(f"Error en guardarAsistencia: {err}")
+        if con: con.rollback()
+        return make_response(jsonify(success=False, message=str(err)), 500)
+    finally:
+        if cursor: cursor.close()
+        if con and con.is_connected(): con.close()
+
+
+@app.route("/asistencia/eliminar", methods=["POST"])
+@login_required
+def eliminarAsistencia():
+    id_asistencia = request.form.get("id")
+    
+    if not id_asistencia:
+        return make_response(jsonify(success=False, message="ID no proporcionado."), 400)
+
+    con = None
+    cursor = None
+    try:
+        con = mysql.connector.connect(**db_config)
+        cursor = con.cursor()
+        
+        sql = "DELETE FROM asistencias WHERE idAsistencia = %s"
+        cursor.execute(sql, (id_asistencia,))
+        con.commit()
+        
+        pusherAsistencias()
+        return make_response(jsonify(success=True), 200)
+
+    except mysql.connector.Error as err:
+        print(f"Error en eliminarAsistencia: {err}")
+        if con: con.rollback()
+        return make_response(jsonify(success=False, message=str(err)), 500)
+    finally:
+        if cursor: cursor.close()
+        if con and con.is_connected(): con.close()
 
 @app.route("/asistenciaspases")
 @login_required
