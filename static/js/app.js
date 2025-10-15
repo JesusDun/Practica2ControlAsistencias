@@ -259,20 +259,21 @@ app.controller("departamentosCtrl", function ($scope, PusherService) {
     }
 
     const channel = PusherService.subscribe("canalDepartamentos");
-    channel.bind("eventoDepartamentos", buscarDepartamentos);
-
+    channel.bind("eventoDepartamentos", () => buscarDepartamentos($("#txtBuscarDepartamento").val()));
     buscarDepartamentos();
-
+    
     $(document).off("keyup", "#txtBuscarDepartamento").on("keyup", "#txtBuscarDepartamento", function() {
         const valor = $(this).val();
         buscarDepartamentos(valor);
     });
 
-    $(document).off("submit", "#frmDepartamento").on("submit", "#frmDepartamento", function (e) {
+    // Guardar departamento
+    $(document).off("submit", "#frmDepartamento").on("submit", "#frmDepartamento", function(e) {
         e.preventDefault();
         $.post("/departamento", $(this).serialize()).done(() => {
             this.reset();
             $("#idDepartamento").val("");
+            buscarDepartamentos($("#txtBuscarDepartamento").val());
         });
     });
 
