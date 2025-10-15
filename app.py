@@ -359,6 +359,8 @@ def eliminarAsistenciaPase(idAsistenciaPase):
             cursor.close()
             con.close()
 
+
+
 @app.route("/departamentos")
 @login_required
 @role_required(['Administrador'])
