@@ -347,7 +347,7 @@ def eliminarAsistencia():
         return make_response(jsonify(success=False, message=str(err)), 500)
     finally:
         if cursor: cursor.close()
-        if con and con.is_connected(): con.close()
+        if con and con.is_connected(): con.close() 
 
 @app.route("/asistenciaspases")
 @login_required
