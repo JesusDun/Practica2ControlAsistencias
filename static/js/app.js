@@ -259,7 +259,14 @@ app.controller("departamentosCtrl", function ($scope, PusherService) {
     }
 
     const channel = PusherService.subscribe("canalDepartamentos");
-    channel.bind("eventoDepartamentos", () => buscarDepartamentos($("#txtBuscarDepartamento").val()));
+    channel.bind("eventoDepartamentos", buscarDepartamentos);
+
+    buscarDepartamentos();
+
+    $(document).off("keyup", "#txtBuscarDepartamento").on("keyup", "#txtBuscarDepartamento", function() {
+        const valor = $(this).val();
+        buscarDepartamentos(valor);
+    });
     buscarDepartamentos();
     
     $(document).off("keyup", "#txtBuscarDepartamento").on("keyup", "#txtBuscarDepartamento", function() {
