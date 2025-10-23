@@ -16,6 +16,7 @@
 !include DEVICONS/mysql.puml
 !include DEVICONS2/flask_original.puml
 !include DEVICONS2/github_original.puml
+!include DEVICONS2/cloudflare.puml
 
 LAYOUT_WITH_LEGEND()
 
@@ -26,14 +27,16 @@ Person(empleado, "Empleado", "Sus datos son gestionados por el sistema.", $sprit
 
 ' --- Sistemas de Despliegue y Externos ---
 System_Ext(github, "GitHub", "Repositorio de código fuente.", $sprite="github_original")
-System_Ext(pusher, "Pusher", "API para notificaciones en tiempo real.")
+System_Ext(render, "Render", "Plataforma de despliegue en la nube.", $sprite="cloudflare")
 
-Deployment_Node(render, "Plataforma Render", "PaaS - Plataforma como Servicio") {
+
+Deployment_Node(interior, "Plataforma Render", "PaaS - Plataforma como Servicio") {
     System_Boundary(app_boundary, "Sistema de Control de Asistencias") {
         ' --- Contenedores ---
         Container(spa, "Aplicación Web (SPA)", "AngularJS, HTML5, jQuery", "Interfaz de usuario.", $sprite="angularjs_plain")
         Container(api, "API Backend", "Python, Flask", "Lógica de negocio.", $sprite="python")
         ContainerDb(db, "Base de Datos", "MySQL", "Almacenamiento de datos.", $sprite="mysql")
+        System_Ext(pusher, "Pusher", "API para notificaciones en tiempo real.")
 
         ' --- Componentes (dentro del API) ---
         Component(app_py, "app.py", "Flask", "Punto de entrada de la aplicación, rutas y lógica principal.", $sprite="flask_original")
@@ -42,7 +45,8 @@ Deployment_Node(render, "Plataforma Render", "PaaS - Plataforma como Servicio") 
 
 ' --- Relaciones de Despliegue ---
 Rel(developer, github, "Sube código (git push)")
-Rel(github, render, "Despliega automáticamente al recibir cambios (Webhook)")
+Rel(github, render, "Manda el códgigo para despliegue (Webhook)")
+Rel(render, interior, "Despliega automáticamente al recibir cambios (Webhook)")
 
 ' --- Relaciones de Uso ---
 Rel(admin, spa, "Usa", "HTTPS")
