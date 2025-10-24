@@ -1,0 +1,83 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+' --- Definición de las fuentes de los Sprites ---
+!define FONTAWESOME6 https://raw.githubusercontent.com/tupadr3/plantuml-icon-font-sprites/v3.0.0/icons/font-awesome-6
+!define DEVICONS https://raw.githubusercontent.com/tupadr3/plantuml-icon-font-sprites/v3.0.0/icons/devicons
+!define DEVICONS2 https://raw.githubusercontent.com/tupadr3/plantuml-icon-font-sprites/v3.0.0/icons/devicons2
+
+' --- Inclusión de los Sprites específicos ---
+!include FONTAWESOME6/user_tie.puml
+!include DEVICONS2/angularjs.puml
+!include DEVICONS2/flask_original.puml
+!include DEVICONS/mysql.puml
+!include FONTAWESOME6/database.puml
+!include FONTAWESOME6/bolt.puml
+!include FONTAWESOME6/file_code.puml
+!include FONTAWESOME6/lock.puml
+!include FONTAWESOME6/rss.puml
+!include FONTAWESOME6/paper_plane.puml
+
+LAYOUT_WITH_LEGEND()
+
+' --- Título del Diagrama ---
+title Diagrama de Componentes C4 - Módulo "AsistenciasPases" (Flujo L-R)
+
+' --- DIRECTIVA DE DISEÑO ---
+left to right direction
+
+' --- Actor (Izquierda) ---
+Person(admin, "Administrador", "Gestiona los pases de asistencia (CRUD).", $sprite="user_tie")
+
+' --- Contenedor: Aplicación Web (Centro-Izquierda) ---
+Container_Boundary(spa, "Aplicación Web (SPA)") {
+    Component(angular_router, "AngularJS Router", "ngRoute", "Navega a la vista #/asistenciaspases.", $sprite="angularjs")
+    Component(asistenciaspases_view, "Vista (asistenciaspases.html)", "HTML/Jinja2", "Formularios y tabla de pases.", $sprite="file_code")
+    Component(asistenciaspases_ctrl, "asistenciaspasesCtrl", "AngularJS", "Lógica de la vista (CRUD, Búsqueda).", $sprite="angularjs")
+    Component(pusher_service, "PusherService (Factory)", "AngularJS", "Recibe eventos de Pusher.", $sprite="rss")
+}
+
+' --- Contenedor: API Backend (Centro-Derecha) ---
+Container_Boundary(api, "API Backend (Flask)") {
+    Component(auth, "Flask-Login", "Python", "Verifica autenticación (`@login_required`).", $sprite="lock")
+    Component(asistenciaspases_routes, "Rutas de AsistenciaPases", "Python/Flask", "Endpoints para CRUD y búsqueda.", $sprite="flask_original")
+    Component(pusher_func, "Función Pusher", "Python", "Envía trigger a Pusher.", $sprite="paper_plane")
+}
+
+' --- Sistemas Externos (Derecha) ---
+System_Ext(db, "Base de Datos", "MySQL. Almacena pases, empleados y asistencias.", $sprite="mysql")
+System_Ext(pusher, "Pusher", "Servicio externo de WebSockets.", $sprite="bolt")
+
+' --- Relaciones Internas (Agrupadas) ---
+' SPA Internas
+Rel(angular_router, asistenciaspases_view, "Carga la plantilla")
+Rel(angular_router, asistenciaspases_ctrl, "Activa el controlador")
+Rel(asistenciaspases_ctrl, asistenciaspases_view, "Rellena formulario (Editar) / Inyecta tabla (Read)")
+Rel(pusher_service, asistenciaspases_ctrl, "Dispara recarga de tabla")
+
+' API Internas
+Rel(asistenciaspases_routes, auth, "Usa para proteger rutas")
+Rel(asistenciaspases_routes, pusher_func, "Llama después de CUD")
+
+
+' --- Relaciones de Flujo (Usuario -> SPA -> API -> Externos) ---
+
+' Flujo de Usuario -> SPA
+Rel(admin, asistenciaspases_ctrl, "Inicia acciones (CRUD, Búsqueda, Navegar)", "HTTPS")
+
+' Flujo de SPA -> API
+Rel(asistenciaspases_ctrl, asistenciaspases_routes, "Llama al API (CRUD / Búsqueda)", "HTTPS/AJAX")
+' Carga de template
+Rel(angular_router, asistenciaspases_routes, "Pide template HTML", "GET /asistenciaspases")
+
+' Flujo de API -> DB
+Rel(asistenciaspases_routes, db, "Lee/Escribe\n(CRUD / Búsqueda)", "SQL")
+
+' Flujo de API -> Pusher
+Rel(pusher_func, pusher, "Envía evento", "API Call")
+
+' Flujo de Pusher -> SPA
+Rel(pusher, pusher_service, "Recibe evento", "WebSocket")
+
+@enduml
